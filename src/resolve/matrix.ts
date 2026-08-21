@@ -54,8 +54,18 @@ export function determinant3(m: Mat4): number {
 }
 
 /**
- * True when the rotation part is orthonormal. Guards against emitter
- * transposition-with-scale bugs and sheared transforms.
+ * True when the rotation part is orthonormal. Guards against singular,
+ * sheared, and non-uniformly scaled transforms.
+ *
+ * Does NOT detect a pure transposition of a genuine rotation matrix (the
+ * row-major/column-major mixup that is the single most common LDraw
+ * generator bug): for a genuine rotation R, transpose(R) == inverse(R),
+ * which is itself orthonormal with determinant +1. A transposed rotation is
+ * a perfectly well-formed rotation, just the wrong one -- no orthonormality
+ * or determinant test can distinguish forward from transposed, at any
+ * tolerance. Detecting that requires knowing the intended geometry, which a
+ * verifier reading a single file does not have. See E-01's note in
+ * rules/lego-build-rules.yaml and `not_checkable` there.
  */
 export function isOrthonormal(m: Mat4, eps = 1e-6): boolean {
   const rows: Vec3[] = [

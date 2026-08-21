@@ -37,6 +37,25 @@ describe("L2/L3 rules", () => {
     expect(f.every((x) => x.status !== "fail")).toBe(true);
   });
 
+  // TASK 14, Finding 1: this pins CORRECT behaviour, not a missed detection.
+  // ROT_Y90 transposed is R_y(-90 deg) -- a genuine, different-but-valid
+  // rotation, not a symmetric matrix that happens to equal its own
+  // transpose. For any genuine rotation R, transpose(R) == inverse(R),
+  // which is itself orthonormal with determinant +1: a transposed rotation
+  // is a perfectly well-formed rotation, just the wrong one. No
+  // orthonormality or determinant test -- at any tolerance -- can tell
+  // forward from transposed, so E-01 must NOT flag this. A future
+  // maintainer must not "fix" this by tightening ORTHONORMAL_EPS or
+  // otherwise trying to make E-01 catch it: it is undetectable from a
+  // single file, because doing so requires knowing the intended geometry.
+  // See E-01's note in rules/lego-build-rules.yaml and its `not_checkable`
+  // entry.
+  it("E-01 does not flag a transposed-but-valid rotation (transposition is undetectable by this predicate, by design)", () => {
+    // transpose of ROT_Y90 = [0,0,1, 0,1,0, -1,0,0] is [0,0,-1, 0,1,0, 1,0,0]
+    const transposedY90 = "1 4 0 0 0 0 0 -1 0 1 0 1 0 0 3001.dat";
+    expect(fire(byId(l2Rules, "E-01"), transposedY90)).toHaveLength(0);
+  });
+
   it("E-02 fails a positive Y translation", () => {
     const f = fire(byId(l3Rules, "E-02"), "1 4 0 24 0 1 0 0 0 1 0 0 0 1 3001.dat");
     expect(f[0]!.status).toBe("fail");

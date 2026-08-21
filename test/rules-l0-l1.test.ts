@@ -156,6 +156,26 @@ describe("L0/L1 rules", () => {
     expect(f).toHaveLength(0);
   });
 
+  // TASK 14, Finding 2: exercises the submodel-name exception branch itself
+  // (`submodelNames.has(...)` in l0-syntax.ts) -- a colour-16 reference
+  // AT THE TOP LEVEL to another "0 FILE" block in the same document (a
+  // submodel), as opposed to a colour-16 reference to a real part. Every
+  // other E-03 test above either fires on a real part (3001.dat) or
+  // exercises colour 16 from inside a submodel's own body; none of them hit
+  // this specific "top-level reference names a submodel, not a part" path.
+  it("E-03 passes on a colour-16 top-level reference to a submodel (not a part) in the same document", () => {
+    const f = fire(
+      byId(l0Rules, "E-03"),
+      [
+        "0 FILE a.ldr",
+        "1 16 0 0 0 1 0 0 0 1 0 0 0 1 b.ldr",
+        "0 FILE b.ldr",
+        "1 4 0 0 0 1 0 0 0 1 0 0 0 1 3001.dat",
+      ].join("\n"),
+    );
+    expect(f).toHaveLength(0);
+  });
+
   it("declares the full set of parser error codes as owned by exactly one rule, with no gaps or overlap", async () => {
     const srcDir = fileURLToPath(new URL("../src", import.meta.url));
 

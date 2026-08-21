@@ -24,13 +24,19 @@ const SINGULAR_EPS = 1e-6;
  * consecutive track segments are placed with a hand/tool-approximated
  * small-angle matrix (cosθ≈1, sinθ≈θ) instead of an exact rotation. That is
  * authoring imprecision in how a curve of real, physical track pieces was
- * positioned, not a transposed or sheared matrix -- and it stays two orders
- * of magnitude below where genuine transposition/shear deviations start
- * (~0.1, running into the hundreds; see `Placement.generatedFlexPath` in
- * `resolve/ir.ts` for a separate, much larger deviation cluster that is
- * excluded by an entirely different mechanism rather than by widening this
- * tolerance further). 0.05 clears the curved-track cluster with headroom
- * while staying well clear of that genuine-defect range.
+ * positioned, not a sheared or scaled matrix -- and it stays two orders of
+ * magnitude below where genuine shear/scale deviations start (~0.1, running
+ * into the hundreds; see `Placement.generatedFlexPath` in `resolve/ir.ts`
+ * for a separate, much larger deviation cluster that is excluded by an
+ * entirely different mechanism rather than by widening this tolerance
+ * further). 0.05 clears the curved-track cluster with headroom while
+ * staying well clear of that genuine-defect range.
+ *
+ * NOTE: a pure transposition of an unscaled rotation produces ZERO
+ * deviation here, not a large one -- transpose(R) of a genuine rotation R
+ * is itself orthonormal (transpose(R) == inverse(R)). No value of this
+ * epsilon can make this check catch that class of bug; see E-01's note in
+ * rules/lego-build-rules.yaml.
  */
 const ORTHONORMAL_EPS = 0.05;
 
@@ -84,8 +90,13 @@ const matrixSane: Rule = {
           ruleId: meta.id,
           tier: meta.tier,
           status: "fail",
+          // NOT a row/column-major (transposed) matrix: transpose(R) of a
+          // genuine rotation R is itself orthonormal, so it would never
+          // reach this branch -- see E-01's note in
+          // rules/lego-build-rules.yaml. This branch only fires for a
+          // singular, sheared, or non-uniformly scaled transform.
           message:
-            "rotation is not orthonormal — the part is sheared or scaled. A common cause is emitting a column-major matrix: (a,b,c) is the FIRST ROW in LDraw",
+            "rotation is not orthonormal — the transform is sheared or non-uniformly scaled. (This check cannot detect a transposed row/column-major matrix: a transposed rotation is itself orthonormal and would pass undetected.)",
           locations: [{ file: p.file, line: p.line, partId: p.partId }],
           evidence: { determinant: det },
         });

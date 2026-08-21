@@ -7,10 +7,24 @@ const TOL = 1e-6;
 
 /**
  * Tolerance for `isAxisAligned`'s well-formedness and 90-degree-multiple
- * checks. See `ORTHONORMAL_EPS` in `l2-matrix.ts` for why 1e-6 is
+ * checks. See `ORTHONORMAL_EPS` in `l2-matrix.ts` (0.05) for why 1e-6 is
  * unrealistic against real LDraw files (6-decimal authored coefficients,
- * compounded through nested submodel transforms) -- the same reasoning
- * applies here, and this rule shares the same measured tolerance.
+ * compounded through nested submodel transforms) -- that same rounding
+ * argument motivates loosening this value too, off its own 1e-6 default.
+ *
+ * This value (1e-3) is deliberately ~50x tighter than ORTHONORMAL_EPS
+ * (0.05), not "the same measured tolerance" -- the two checks are asking
+ * different questions and a shared value would be wrong for one of them.
+ * ORTHONORMAL_EPS only has to answer "is this still a valid rotation at
+ * all", so it can be as loose as the noisiest real, non-defective rotation
+ * requires (e.g. the ~0.04 curved-track small-angle cluster documented
+ * there). `isAxisAligned` instead has to answer "is this rotation within
+ * epsilon of an exact 0/90/180/270-degree multiple", and that same
+ * curved-track small-angle cluster (deviations up to ~0.04) is precisely
+ * the kind of near-but-not-actually-aligned rotation this check exists to
+ * reject -- widening AXIS_EPS to 0.05 would wrongly accept it as
+ * axis-aligned. 1e-3 clears ordinary 6-decimal rounding/compounding drift
+ * while staying well under that cluster's ~0.04 floor.
  */
 const AXIS_EPS = 1e-3;
 

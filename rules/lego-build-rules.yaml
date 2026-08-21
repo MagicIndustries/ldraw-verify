@@ -402,9 +402,25 @@ rules:
     predicate: "det(R) == +1 AND R * transpose(R) == I"
     priority: 1
     note: >
-      three.js and glm are column-major. Symmetric parts look fine when transposed —
-      test with a slope. TASK 14: kept HARD, predicate corrected, not weakened --
-      genuine transposition/shear still fails at any of the tolerances below.
+      TASK 14: kept HARD, but corrected a false claim -- this predicate does NOT
+      detect a transposed (row-major/column-major mixed-up) matrix, described
+      elsewhere as the single most common LDraw generator bug, at any tolerance.
+      For a genuine rotation R, transpose(R) == inverse(R), which is itself
+      orthonormal with determinant +1: a transposed rotation is a perfectly
+      well-formed rotation, just the wrong one, so no orthonormality or
+      determinant test can distinguish forward from transposed. Widening or
+      tightening the tolerance changes nothing (three.js and glm being
+      column-major is exactly why this bug is common, but it does not make it
+      catchable this way). What det(R)==+1 AND R*transpose(R)==I actually
+      catches: a singular (zero-scaled), sheared, or non-uniformly scaled
+      transform -- see the three corpus-measured, non-defect sources of
+      non-orthonormality below, which is what set ORTHONORMAL_EPS. Detecting a
+      transposed placement instead requires knowing the intended geometry, which
+      a verifier reading one file does not have -- see `not_checkable` below.
+      No test in this suite exercises a transposed matrix as a failure case,
+      because it would (correctly) pass; test/rules-l2-l3.test.ts pins a
+      transposed rotation as a non-finding on purpose, so this is not
+      "fixed" later by loosening the rule.
       Corpus-wide measurement found three distinct, unrelated sources of
       non-orthonormality in real OMR files, none of them a real defect: (1) primitives
       (p/, p/48/, p/8/) and subparts (parts/s/) referenced directly from a custom/
@@ -648,6 +664,7 @@ rules:
 # --------------------------------------------------------------------------
 
 not_checkable:
+  - "Is a placement's rotation matrix transposed (row/column-major mixed up)? (E-01 cannot see this: transpose(R) of a genuine rotation R is itself orthonormal with determinant +1, so it is indistinguishable from the correct orientation at any tolerance. Detecting it requires knowing the intended geometry, which a verifier reading a single file does not have — TASK 14, see E-01's note.)"
   - "Is this model structurally sound? (L6 — unsolved in the open)"
   - "Would this actually clutch together and hold? (no zero-tolerance ground truth exists)"
   - "Is this good building technique? (aesthetic; heuristic at best)"

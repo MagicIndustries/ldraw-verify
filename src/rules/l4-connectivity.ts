@@ -58,6 +58,22 @@ import type { Finding, Rule, RuleContext } from "./types.js";
  *   under-report, never over-report" direction as a degraded grid, so it is
  *   handled identically: only ever grounds to soften a `fail` to `unknown`,
  *   never to manufacture one or touch a `pass`.
+ *
+ * KNOWN FALSE-NEGATIVE SURFACE (TASK 14, not fixed in this pass): both
+ * `unreliableAxisPlacements` and `degradedGridPlacements` soften this rule's
+ * verdict for the WHOLE model, not just for the component(s) touching the
+ * affected placement -- see the `unknown` branch below, which checks
+ * "does either list have anything in it anywhere" rather than "is either
+ * list's placement part of the unexplained component(s)". `ConnectionGraph`
+ * does not expose per-component membership (see `explainedByClips` above
+ * for the same limitation), so there is no cheap way to scope the
+ * softening more tightly today. The practical consequence: a single
+ * unrelated unreliable-axis or degraded-grid placement anywhere in a large
+ * model can mask a genuinely floating, disconnected part elsewhere in that
+ * same model, downgrading a real `fail` to `unknown` where a component-
+ * scoped check would still have caught it. This predates the axis-
+ * unreliable signal added in this pass, which widens the same gate rather
+ * than narrowing it, so it is recorded here rather than left implicit.
  */
 const noFloatingParts: Rule = {
   id: "B-06",
