@@ -46,17 +46,33 @@ describe("collectSnapMetas", () => {
     expect(translationOf(metas[0]!.xform).map((n) => Math.round(n * 1e6) / 1e6)).toEqual([5, 0, 0]);
   });
 
-  it("terminates on a reference cycle instead of hanging", async () => {
-    const shadow = fakeShadow({});
+  it("the visiting-set guard stops a reference cycle from duplicating a part's own metas", async () => {
+    // selfref.dat includes itself directly AND carries its own shadow data.
+    // This is deliberately NOT just "does it hang" (it wouldn't, either
+    // way — MAX_DEPTH bounds the recursion regardless of the visiting-set
+    // guard). It's a property only the `visiting` set can provide: with the
+    // guard, walk(selfref) visits selfref once, collects its one meta, then
+    // immediately bails out of the re-entrant call. Without the guard (but
+    // with MAX_DEPTH still in place), the depth check alone would let the
+    // recursion re-enter selfref.dat at every depth from 0 through
+    // MAX_DEPTH (32) inclusive — 33 visits, each re-reading and re-pushing
+    // the same shadow meta — ballooning the result to 33 duplicated metas
+    // instead of 1. Asserting the exact count (not just "non-empty" or
+    // "bounded") is what makes this test fail if the guard is removed.
+    const shadow = fakeShadow({
+      "parts/selfref.dat": "0 !LDCAD SNAP_CYL [gender=M] [pos=0 0 0]",
+    });
     const { metas, hadData } = await collectSnapMetas("selfref.dat", lib, shadow);
-    expect(metas).toEqual([]);
-    expect(hadData).toBe(false);
+    expect(hadData).toBe(true);
+    expect(metas).toHaveLength(1);
   });
 
-  it("bounds runaway recursion with the depth guard", async () => {
-    // chain0.dat -> chain1.dat -> ... -> chain40.dat, no cycle. Only
-    // chain40.dat carries shadow data, well past MAX_DEPTH (32), so it
-    // must never be reached if the guard is doing its job.
+  it("bounds runaway recursion with the depth guard, independent of the cycle guard", async () => {
+    // chain0.dat -> chain1.dat -> ... -> chain40.dat, no cycle -- so the
+    // visiting-set guard never triggers here (no id repeats) and this test
+    // exercises MAX_DEPTH alone. Only chain40.dat carries shadow data, well
+    // past MAX_DEPTH (32), so it must never be reached if the guard is
+    // doing its job.
     const shadow = fakeShadow({
       "parts/chain40.dat": "0 !LDCAD SNAP_CYL [gender=M] [pos=0 0 0]",
     });
@@ -103,6 +119,55 @@ describe("collectSnapMetas", () => {
     expect(metas).toHaveLength(1);
     expect(metas[0]!.meta.type).toBe("SNAP_CYL");
     expect(translationOf(metas[0]!.xform)).toEqual([0, 10, 0]);
+  });
+
+  it("id-scoped SNAP_CLEAR removes every meta sharing that id, even independently-inherited ones (pinned current behaviour)", async () => {
+    // clearmulti_a and clearmulti_b are independent subparts of the parent,
+    // each contributing a meta with the same id -- a collision that
+    // doesn't occur in the real corpus (its 11 distinct id tags are each
+    // defined by exactly one primitive) but is possible in principle. This
+    // pins the deliberate choice not to try to disambiguate: an id-scoped
+    // SNAP_CLEAR removes ALL matches, not just one. See the SNAP_CLEAR
+    // paragraph on collectSnapMetas's doc comment for the rationale.
+    const shadow = fakeShadow({
+      "parts/clearmulti_a.dat": "0 !LDCAD SNAP_CYL [id=shared] [gender=M] [pos=0 0 0]",
+      "parts/clearmulti_b.dat": "0 !LDCAD SNAP_CYL [id=shared] [gender=F] [pos=1 0 0]",
+      "parts/clearmulti_c.dat": "0 !LDCAD SNAP_CLEAR [id=shared]",
+    });
+    const { metas, hadData } = await collectSnapMetas("clearmulti_parent.dat", lib, shadow);
+    expect(hadData).toBe(true);
+    expect(metas).toEqual([]);
+  });
+
+  it("surfaces an unexpandable three-axis grid= rather than silently dropping cells", async () => {
+    // The three-axis grid= extension (7 of 91 real grid= values) isn't
+    // implemented -- its geometry can't be verified against any available
+    // spec -- but per this tool's "nothing detected may be silently
+    // discarded" principle, the drop must be visible to the caller: every
+    // meta reached through the degraded expansion is tagged
+    // gridDegraded, and the closure result counts how many grid
+    // attributes were degraded.
+    const shadow = fakeShadow({
+      "parts/snapgrid3_parent.dat": "0 !LDCAD SNAP_INCL [ref=snapgrid3_ref.dat] [grid=1 2 1 0 -76 0]",
+      "parts/snapgrid3_ref.dat": "0 !LDCAD SNAP_CYL [gender=F] [pos=0 0 0]",
+    });
+    const { metas, hadData, degradedGridCount } = await collectSnapMetas("snapgrid3_parent.dat", lib, shadow);
+    expect(hadData).toBe(true);
+    expect(degradedGridCount).toBe(1);
+    expect(metas).toHaveLength(1);
+    expect(metas[0]!.gridDegraded).toBe(true);
+  });
+
+  it("does not tag metas as gridDegraded when grid= expands cleanly, and reports degradedGridCount 0", async () => {
+    const shadow = fakeShadow({
+      "parts/snapgrid_parent.dat":
+        "0 !LDCAD SNAP_INCL [ref=snapgrid_ref.dat] [pos=0 0 0] [ori=1 0 0 0 1 0 0 0 1] [grid=2 1 100 0]",
+      "parts/snapgrid_ref.dat": "0 !LDCAD SNAP_CYL [gender=F] [pos=0 0 0]",
+    });
+    const { metas, degradedGridCount } = await collectSnapMetas("snapgrid_parent.dat", lib, shadow);
+    expect(degradedGridCount).toBe(0);
+    expect(metas).toHaveLength(2);
+    for (const m of metas) expect(m.gridDegraded).toBeUndefined();
   });
 
   it("SNAP_INCL with grid= produces one instance per cell", async () => {

@@ -2,17 +2,37 @@ import type { Mat3, Vec3 } from "../parse/ast.js";
 import type { LibraryIndex } from "../library/index.js";
 import { tokenizeLine } from "../parse/tokenize.js";
 import { fromLdraw, IDENTITY4, multiply, type Mat4 } from "../resolve/matrix.js";
-import { expandGrid } from "./grid.js";
+import { expandGridWithStatus } from "./grid.js";
 import { parseSnapMetas, type ShadowLibrary, type SnapMeta } from "./shadow.js";
 
 export interface PlacedMeta {
   meta: SnapMeta;
   xform: Mat4;
+  /**
+   * True when this meta was reached through a `SNAP_INCL [grid=...]` whose
+   * grid attribute didn't fully expand (see `expandGridWithStatus` in
+   * `grid.ts` — currently the undocumented three-axis form). The recursion
+   * still ran once, at the single `[0,0,0]` fallback offset, so this meta
+   * (and everything else pulled in alongside it) represents only one of
+   * what should have been several tiled instances; siblings at the other
+   * grid cells were never collected. Absent (not `false`) when the meta's
+   * placement chain never passed through a degraded grid expansion.
+   */
+  gridDegraded?: boolean;
 }
 
 interface ClosureResult {
   metas: PlacedMeta[];
   hadData: boolean;
+  /**
+   * Count of `SNAP_INCL [grid=...]` attributes encountered in this closure
+   * that `expandGridWithStatus` could not fully expand (see
+   * `PlacedMeta.gridDegraded`). Zero means every grid attribute seen either
+   * expanded cleanly or was absent. This is a count of degraded
+   * *attributes*, not of dropped cells or affected metas — the tool has no
+   * way to know how many cells a three-axis grid was meant to produce.
+   */
+  degradedGridCount: number;
 }
 
 const MAX_DEPTH = 32;
@@ -77,20 +97,30 @@ function parseMat3(text: string | undefined): Mat3 | undefined {
  * [ID=someId]`, removes only the previously-accumulated metas whose own
  * `id` attribute matches (case-insensitively — key casing is already
  * normalised by `parseAttrs`, and real files are consistent on value
- * casing, but the comparison is defensive regardless).
+ * casing, but the comparison is defensive regardless). This removes EVERY
+ * accumulated meta with a matching id, not just one: if two independently
+ * inherited metas ever shared an id, an id-scoped clear would remove both.
+ * That's accepted as current behaviour rather than fixed — the shadow
+ * format gives no further information to disambiguate same-id metas, and a
+ * corpus check found all 11 distinct id tags in use are each defined by
+ * exactly one primitive, so no real file currently exercises the
+ * collision (pinned by a test in closure.test.ts regardless, so the choice
+ * stays deliberate and visible rather than incidental).
  * SNAP_INCL pulls in another shadow file's data as if that file's part were
  * placed at `[pos]`/`[ori]` (defaulting to identity) relative to the current
  * frame — it is resolved by recursing into that referenced part's own
  * closure, exactly like a physical subfile placement, rather than being
  * reported as a snap point itself. An optional `[grid=...]` attribute tiles
- * that inclusion into a repeated array (see `expandGrid`); each cell is a
- * separate recursion at its own offset.
+ * that inclusion into a repeated array (see `expandGridWithStatus` in
+ * `grid.ts`); each cell is a separate recursion at its own offset. When
+ * that expansion is degraded (an unhandled grid form), see
+ * `PlacedMeta.gridDegraded` and `ClosureResult.degradedGridCount`.
  */
 export async function collectSnapMetas(
   partId: string,
   lib: LibraryIndex,
   shadow: ShadowLibrary,
-): Promise<{ metas: PlacedMeta[]; hadData: boolean }> {
+): Promise<{ metas: PlacedMeta[]; hadData: boolean; degradedGridCount: number }> {
   const cache = cacheFor(lib, shadow);
   const entry = lib.get(partId);
   const key = (entry?.relPath ?? partId).toLowerCase();
@@ -110,12 +140,21 @@ export async function collectSnapMetas(
 
   const result = await pending;
   // Fresh array per call so a caller mutating the result can't corrupt the cache.
-  return { metas: result.metas.map((m) => ({ meta: m.meta, xform: m.xform })), hadData: result.hadData };
+  return {
+    metas: result.metas.map((m) => ({
+      meta: m.meta,
+      xform: m.xform,
+      ...(m.gridDegraded ? { gridDegraded: true as const } : {}),
+    })),
+    hadData: result.hadData,
+    degradedGridCount: result.degradedGridCount,
+  };
 }
 
 async function walkClosure(partId: string, lib: LibraryIndex, shadow: ShadowLibrary): Promise<ClosureResult> {
   const metas: PlacedMeta[] = [];
   let hadData = false;
+  let degradedGridCount = 0;
   const visiting = new Set<string>();
 
   async function walk(id: string, xform: Mat4, depth: number): Promise<void> {
@@ -150,8 +189,19 @@ async function walkClosure(partId: string, lib: LibraryIndex, shadow: ShadowLibr
             const pos = parseVec3(meta.attrs.pos) ?? [0, 0, 0];
             const ori = parseMat3(meta.attrs.ori) ?? IDENTITY_ROT;
             const base = multiply(xform, fromLdraw(pos, ori));
-            for (const offset of expandGrid(meta.attrs)) {
+            const { offsets, degraded } = expandGridWithStatus(meta.attrs);
+            if (degraded) degradedGridCount++;
+            for (const offset of offsets) {
+              const before = metas.length;
               await walk(ref, multiply(base, fromLdraw(offset, IDENTITY_ROT)), depth + 1);
+              // Every meta collected by this recursion represents only one
+              // of what a fully-expanded grid should have produced — tag
+              // them so a caller can tell they're incomplete.
+              if (degraded) {
+                for (let idx = before; idx < metas.length; idx++) {
+                  metas[idx] = { ...metas[idx]!, gridDegraded: true };
+                }
+              }
             }
           }
           continue;
@@ -171,5 +221,5 @@ async function walkClosure(partId: string, lib: LibraryIndex, shadow: ShadowLibr
   }
 
   await walk(partId, IDENTITY4, 0);
-  return { metas, hadData };
+  return { metas, hadData, degradedGridCount };
 }

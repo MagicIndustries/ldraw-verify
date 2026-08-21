@@ -26,4 +26,16 @@ describe("LibraryIndex", () => {
     const lib = await LibraryIndex.fromDirectory("test/fixtures/lib");
     expect(lib.get("9999999.dat")).toBeUndefined();
   });
+
+  it("has() agrees with get() on a path-prefixed id", async () => {
+    // A reference token can carry a subdirectory prefix (e.g. a subfile
+    // reference to a part under parts/s/), which get() resolves by
+    // stripping everything up to the last path separator before the
+    // lowercase lookup. has() must strip the same way, or it can report a
+    // part as absent that get() would successfully resolve.
+    const lib = await LibraryIndex.fromDirectory("test/fixtures/lib");
+    expect(lib.has("s\\3001s01.dat")).toBe(true);
+    expect(lib.has("s\\3001s01.dat")).toBe(lib.get("s\\3001s01.dat") !== undefined);
+    expect(lib.get("s\\3001s01.dat")!.id).toBe("3001s01.dat");
+  });
 });
