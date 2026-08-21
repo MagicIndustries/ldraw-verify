@@ -204,7 +204,18 @@ export async function buildGraph(
     if (degradedGridCount > 0) degradedGridPlacements.push(p.index);
 
     const hotspots = metasToHotspots(metas);
-    if (hotspots.filter((h) => h.gender === "male").length === 1) singleStudParts.add(p.index);
+    // A part whose sole connecting hotspot is a SNAP_CLP is not a stud at
+    // all. SNAP_CLP metas carry no gender attribute in the real shadow
+    // library, so `metasToHotspots` defaults them to "male" (see that
+    // file's doc comment) -- which would otherwise make a bare-clip part
+    // (e.g. 15210.dat, a roadsign clip-on with no stud, or 92220.dat, a
+    // hooked claw with a clip) count as a single-stud part here and become
+    // subject to B-05's axis-alignment check, even though a clip mount
+    // legitimately rotates freely and isn't a stud. `UNPAIRABLE_KINDS`
+    // already marks SNAP_CLP as never eligible to pair (hotspotsCompatible,
+    // above); the single-stud count excludes it for the same reason.
+    const pairableMaleHotspots = hotspots.filter((h) => h.gender === "male" && !UNPAIRABLE_KINDS.has(h.kind));
+    if (pairableMaleHotspots.length === 1) singleStudParts.add(p.index);
     if (hotspots.length > 0 && hotspots.every((h) => UNPAIRABLE_KINDS.has(h.kind))) {
       clipOnlyPlacements.push(p.index);
     }

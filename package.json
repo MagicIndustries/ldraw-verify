@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "vitest run",
-    "build": "tsc"
+    "build": "tsc && mkdir -p dist/data && cp data/part-classes.json dist/data/part-classes.json"
   },
   "repository": {
     "type": "git",

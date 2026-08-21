@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { determinant3, isOrthonormal } from "../resolve/matrix.js";
 import type { Finding, Rule, RuleContext } from "./types.js";
 
 /**
@@ -17,6 +18,16 @@ import type { Finding, Rule, RuleContext } from "./types.js";
  * `src/rules/l5-legality.ts`, two directories below the repo root, so `../
  * ../data/part-classes.json` from here lands on `data/part-classes.json` at
  * the root, regardless of where the process was launched from.
+ *
+ * The same relative depth also holds once this module is compiled: `tsc`
+ * (rootDir `.`, outDir `dist`) mirrors the whole source tree, so this file
+ * lands at `dist/src/rules/l5-legality.js` -- two directories below
+ * `dist/`, exactly as `src/rules/l5-legality.ts` is two directories below
+ * the repo root. `../../data/part-classes.json` therefore resolves to
+ * `dist/data/part-classes.json` from the compiled module, unchanged from
+ * the source-layout formula above, as long as the build copies the data
+ * file to that mirrored location -- see the `build` script in
+ * `package.json`.
  */
 const DATA_PATH = fileURLToPath(new URL("../../data/part-classes.json", import.meta.url));
 
@@ -24,12 +35,33 @@ interface PartClasses {
   technicHole: string[];
 }
 
-function loadTechnicHoleParts(): Set<string> {
-  const classes = JSON.parse(readFileSync(DATA_PATH, "utf8")) as PartClasses;
-  return new Set(classes.technicHole.map((s) => s.toLowerCase()));
-}
+/**
+ * `TECHNIC_HOLE_PARTS` is populated lazily, on first use by a rule that
+ * actually needs it, not at module load. Loading eagerly at module scope
+ * means *merely importing* this module -- which happens transitively
+ * through any barrel or entry point that pulls in the L5 rules, whether or
+ * not a caller ever runs B-01 -- throws an uncaught `ENOENT` and crashes
+ * the whole process if `data/part-classes.json` isn't where `DATA_PATH`
+ * expects it (e.g. a `dist/` build where the copy step that ships it
+ * alongside the compiled output was skipped or misconfigured). Deferring
+ * the read until a rule actually runs turns that mistake into an ordinary
+ * error surfaced inside `Rule.run` instead of one that takes the process
+ * down before it can do anything at all.
+ *
+ * The exported binding keeps the same `Set<string>` shape existing callers
+ * and tests already rely on -- same object identity for the process's
+ * whole life, just empty until `ensureTechnicHolePartsLoaded` fills it in
+ * on first real use.
+ */
+export const TECHNIC_HOLE_PARTS = new Set<string>();
+let technicHolePartsLoaded = false;
 
-export const TECHNIC_HOLE_PARTS = loadTechnicHoleParts();
+function ensureTechnicHolePartsLoaded(): void {
+  if (technicHolePartsLoaded) return;
+  technicHolePartsLoaded = true;
+  const classes = JSON.parse(readFileSync(DATA_PATH, "utf8")) as PartClasses;
+  for (const id of classes.technicHole) TECHNIC_HOLE_PARTS.add(id.toLowerCase());
+}
 
 const STUD_RADIUS = 6;
 const RADIUS_TOL = 0.5;
@@ -71,29 +103,40 @@ const noStudInPinhole: Rule = {
       ];
     }
 
+    ensureTechnicHolePartsLoaded();
+
     const out: Finding[] = [];
     for (const e of graph.edges) {
       if (e.radius === undefined || Math.abs(e.radius - STUD_RADIUS) > RADIUS_TOL) continue;
-      for (const [self, other] of [
-        [e.a, e.b],
-        [e.b, e.a],
-      ] as const) {
-        const source = model.placements[self];
-        const target = model.placements[other];
-        if (!source || !target) continue;
-        if (!TECHNIC_HOLE_PARTS.has(target.partId.toLowerCase())) continue;
-        out.push({
-          ruleId: meta.id,
-          tier: meta.tier,
-          status: "fail",
-          message: `stud from ${source.partId} enters a Technic pinhole on ${target.partId}; the BrickLink Designer Program bans this outright`,
-          locations: [
-            { file: source.file, line: source.line, partId: source.partId },
-            { file: target.file, line: target.line, partId: target.partId },
-          ],
-          evidence: { at: e.at, radius: e.radius },
-        });
-      }
+      const pa = model.placements[e.a];
+      const pb = model.placements[e.b];
+      if (!pa || !pb) continue;
+
+      // One physical connection, one finding. A part like 3700.dat is a
+      // Technic-hole part that also carries ordinary studs, so both
+      // endpoints of an edge can legitimately be Technic-hole-class at
+      // once (two such parts mated normally). Evaluate both orientations
+      // to find a match, but report at most one finding for this edge --
+      // never one per matching orientation.
+      const match = (
+        [
+          [pa, pb],
+          [pb, pa],
+        ] as const
+      ).find(([, target]) => TECHNIC_HOLE_PARTS.has(target.partId.toLowerCase()));
+      if (!match) continue;
+      const [source, target] = match;
+      out.push({
+        ruleId: meta.id,
+        tier: meta.tier,
+        status: "fail",
+        message: `stud from ${source.partId} enters a Technic pinhole on ${target.partId}; the BrickLink Designer Program bans this outright`,
+        locations: [
+          { file: source.file, line: source.line, partId: source.partId },
+          { file: target.file, line: target.line, partId: target.partId },
+        ],
+        evidence: { at: e.at, radius: e.radius },
+      });
     }
     return out;
   },
@@ -114,6 +157,21 @@ const noStudInPinhole: Rule = {
  * rotation matrix. `Placement.world` is a row-major flattened Mat4
  * (resolve/matrix.ts), so the rotation block sits at indices
  * 0,1,2 / 4,5,6 / 8,9,10.
+ *
+ * That per-entry check is only sound when the rotation block is actually an
+ * orthonormal rotation to begin with. A degenerate transform -- e.g. a
+ * duplicated row, giving `det3 == 0` -- can have every one of those nine
+ * entries in {0, 1} and sail through the per-entry check as "aligned" even
+ * though it isn't a rotation at all. `E-01` (l2-matrix.ts) is the rule that
+ * reports a singular or non-orthonormal transform as a failure, but
+ * `Registry.run` evaluates every corpus rule independently against the same
+ * model: E-01 failing a placement does not gate B-05 from evaluating that
+ * same transform, so B-05 cannot rely on E-01 having already rejected it.
+ * `determinant3`/`isOrthonormal` (resolve/matrix.ts) gate the per-entry
+ * check below; when they say the rotation isn't well-formed, B-05 reports
+ * `unknown` rather than `pass` -- it genuinely cannot tell whether the
+ * placement is axis-aligned, and `pass` would claim the opposite of what
+ * E-01 is independently failing on the same transform.
  */
 const noFractionalRotation: Rule = {
   id: "B-05",
@@ -136,6 +194,20 @@ const noFractionalRotation: Rule = {
     for (const i of graph.singleStudParts) {
       const p = model.placements[i];
       if (!p) continue;
+
+      const det = determinant3(p.world);
+      if (Math.abs(det) < AXIS_TOL || !isOrthonormal(p.world, AXIS_TOL)) {
+        out.push({
+          ruleId: meta.id,
+          tier: meta.tier,
+          status: "unknown",
+          message: `${p.partId}'s rotation is not a well-formed orthonormal matrix (singular or sheared); axis-alignment cannot be determined here -- see E-01`,
+          locations: [{ file: p.file, line: p.line, partId: p.partId }],
+          evidence: { determinant: det },
+        });
+        continue;
+      }
+
       const rot = [
         p.world[0]!,
         p.world[1]!,

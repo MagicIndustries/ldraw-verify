@@ -139,6 +139,24 @@ describe("buildGraph", () => {
     expect(g.components).toBe(2);
   });
 
+  // Finding 4 (task-12): SNAP_CLP metas carry no gender attribute in the
+  // real shadow library, so metasToHotspots defaults them to "male" (see
+  // that file's doc comment). Without excluding unpairable kinds, a part
+  // whose sole connecting hotspot is a bare clip -- a real shape in the
+  // shadow library, e.g. 15210.dat "Roadsign Clip-on 2x2 Square with
+  // C-Clip" or 92220.dat "Claw Hooked with Clip" -- would count as a
+  // single-stud part even though it has no stud at all, wrongly subjecting
+  // it to B-05's axis-alignment check.
+  it("does not count a placement whose sole hotspot is a SNAP_CLP as a single-stud part", async () => {
+    const shadow = fakeShadow({
+      "parts/clip.dat": "0 !LDCAD SNAP_CLP [radius=4] [length=8] [center=true] [pos=0 0 0]",
+    });
+    const model = modelOf([placement(0, "clip.dat")]);
+    const g = await buildGraph(model, lib, shadow);
+    expect(g.singleStudParts).toEqual(new Set());
+    expect(g.clipOnlyPlacements).toEqual([0]);
+  });
+
   it("does not flag a placement in clipOnlyPlacements when it also has a non-clip connecting meta", async () => {
     const shadow = fakeShadow({
       "parts/female.dat": "0 !LDCAD SNAP_CYL [gender=F] [pos=0 0 0]",
