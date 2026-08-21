@@ -11,6 +11,14 @@ export interface Edge {
   b: number;
   kind: string;
   at: Vec3;
+  /**
+   * The connecting hotspot's `secs=` radius (LDU), when the underlying
+   * SNAP_* meta carried one -- see `metasToHotspots` in hotspots.ts. Rules
+   * that need to identify a specific physical connector by size (e.g. B-01
+   * distinguishing a System stud from a Technic pin by its 6 LDU radius)
+   * read this rather than re-deriving it from part geometry.
+   */
+  radius?: number;
 }
 
 export interface ConnectionGraph {
@@ -61,6 +69,15 @@ export interface ConnectionGraph {
    * false disconnection.
    */
   clipOnlyPlacements: number[];
+  /**
+   * Placement indices (Placement.index) whose hotspots include exactly one
+   * male hotspot. A grid-expanded 1x1 plate/tile is the canonical example:
+   * grid expansion (grid.ts) resolves it to precisely one male hotspot, so
+   * this set is derivable from connectivity data rather than needing a
+   * hand-maintained "which parts are single-stud" list. B-05 (no fractional
+   * rotation of single-stud parts) is the first consumer.
+   */
+  singleStudParts?: Set<number>;
 }
 
 /** World-space distance (LDU) within which two hotspots are considered coincident. */
@@ -178,6 +195,7 @@ export async function buildGraph(
   const unknownPlacements: number[] = [];
   const degradedGridPlacements: number[] = [];
   const clipOnlyPlacements: number[] = [];
+  const singleStudParts = new Set<number>();
   const all: LocatedHotspot[] = [];
 
   for (const p of model.placements) {
@@ -186,6 +204,7 @@ export async function buildGraph(
     if (degradedGridCount > 0) degradedGridPlacements.push(p.index);
 
     const hotspots = metasToHotspots(metas);
+    if (hotspots.filter((h) => h.gender === "male").length === 1) singleStudParts.add(p.index);
     if (hotspots.length > 0 && hotspots.every((h) => UNPAIRABLE_KINDS.has(h.kind))) {
       clipOnlyPlacements.push(p.index);
     }
@@ -224,11 +243,17 @@ export async function buildGraph(
             // same-placement hotspots: a part cannot connect to itself.
             if (cand.placementIndex <= loc.placementIndex) continue;
             if (!hotspotsCompatible(loc.hotspot, cand.hotspot)) continue;
+            // Either side of a compatible pair may carry the `secs=` radius
+            // (it's meta-level data, not guaranteed to be duplicated on
+            // both the male and female hotspot of a pairing), so fall back
+            // to the candidate's when the scanning hotspot didn't have one.
+            const radius = loc.hotspot.radius ?? cand.hotspot.radius;
             edges.push({
               a: loc.placementIndex,
               b: cand.placementIndex,
               kind: loc.hotspot.kind,
               at: loc.hotspot.pos,
+              ...(radius !== undefined ? { radius } : {}),
             });
           }
         }
@@ -246,5 +271,6 @@ export async function buildGraph(
     degradedGridPlacements,
     clipOnlyPlacements,
     components: countComponents(total, edges),
+    singleStudParts,
   };
 }

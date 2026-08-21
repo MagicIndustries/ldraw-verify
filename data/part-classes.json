@@ -1,0 +1,4 @@
+{
+  "_comment": "Seed part-property table. LDraw carries no part-class metadata; this is authored. Extend as rules require it.",
+  "technicHole": ["3700.dat", "3701.dat", "3702.dat", "3894.dat", "6541.dat", "32000.dat"]
+}
