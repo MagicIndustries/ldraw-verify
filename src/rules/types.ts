@@ -69,7 +69,13 @@ export interface VerifyResult {
  * `informational` sits last: it is not a verdict on the model at all (LEGAL/
  * STYLE entries, corpus notes), so it never outranks any real verdict.
  */
-const STATUS_SEVERITY: readonly Status[] = ["fail", "unknown", "unimplemented", "pass", "informational"];
+const STATUS_SEVERITY: Record<Status, number> = {
+  fail: 5,
+  unknown: 4,
+  unimplemented: 3,
+  pass: 2,
+  informational: 1,
+};
 
 /**
  * Reduces one rule's findings from a run to the single outcome a consumer
@@ -99,13 +105,18 @@ export function ruleOutcome(findings: Finding[], ruleId: string): Status {
         `outcome yet.`,
     );
   }
-  for (const status of STATUS_SEVERITY) {
-    if (statuses.has(status)) return status;
+  let mostSevere: Status | undefined;
+  let maxSeverity = -1;
+  for (const status of statuses) {
+    const severity = STATUS_SEVERITY[status];
+    if (severity > maxSeverity) {
+      maxSeverity = severity;
+      mostSevere = status;
+    }
   }
-  // Unreachable: STATUS_SEVERITY lists every Status value, and `statuses` is
-  // non-empty and drawn only from Status, so the loop above always returns.
-  throw new Error(
-    `ruleOutcome: findings for "${ruleId}" carry status/es not covered by STATUS_SEVERITY: ` +
-      `${[...statuses].join(", ")}. STATUS_SEVERITY must list every Status value.`,
-  );
+  // Guaranteed non-undefined: STATUS_SEVERITY is Record<Status, number>, which TypeScript
+  // enforces to be exhaustive — every Status value must be present. statuses is non-empty
+  // (checked above), and every value in it is of type Status, so the loop always finds at
+  // least one entry in STATUS_SEVERITY and sets mostSevere to a valid Status.
+  return mostSevere!;
 }
