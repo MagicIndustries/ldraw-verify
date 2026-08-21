@@ -8,6 +8,7 @@ export interface LibraryPart {
   isHidden: boolean;
   movedTo?: string;
   path: string;
+  relPath: string;
 }
 
 const MOVED_TO = /^~Moved to\s+(\S+)/i;
@@ -17,7 +18,7 @@ export class LibraryIndex {
 
   static async fromDirectory(root: string): Promise<LibraryIndex> {
     const parts = new Map<string, LibraryPart>();
-    for (const sub of ["parts", "p"]) {
+    for (const sub of ["parts", "p", "parts/s", "p/48", "p/8"]) {
       const dir = join(root, sub);
       let names: string[];
       try {
@@ -32,12 +33,15 @@ export class LibraryIndex {
         const description = head.replace(/^0\s*/, "").trim();
         const moved = MOVED_TO.exec(description);
         const movedTo = moved?.[1];
-        parts.set(name.toLowerCase(), {
+        const key = name.toLowerCase();
+        if (parts.has(key)) continue; // earlier directories win
+        parts.set(key, {
           id: name,
           description,
           isAlias: moved !== null,
           isHidden: description.startsWith("~"),
           path,
+          relPath: `${sub}/${name}`,
           ...(movedTo !== undefined ? { movedTo } : {}),
         });
       }
@@ -46,7 +50,8 @@ export class LibraryIndex {
   }
 
   get(id: string): LibraryPart | undefined {
-    return this.parts.get(id.toLowerCase());
+    const bare = id.replace(/\\/g, "/").split("/").pop() ?? id;
+    return this.parts.get(bare.toLowerCase());
   }
 
   has(id: string): boolean {
