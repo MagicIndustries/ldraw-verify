@@ -2,6 +2,7 @@ import type { Mat3, Vec3 } from "../parse/ast.js";
 import type { LibraryIndex } from "../library/index.js";
 import { tokenizeLine } from "../parse/tokenize.js";
 import { fromLdraw, IDENTITY4, multiply, type Mat4 } from "../resolve/matrix.js";
+import { expandGrid } from "./grid.js";
 import { parseSnapMetas, type ShadowLibrary, type SnapMeta } from "./shadow.js";
 
 export interface PlacedMeta {
@@ -71,14 +72,19 @@ function parseMat3(text: string | undefined): Mat3 | undefined {
  * The recursion is mandatory: reading only a part's own shadow file yields
  * 15.3% coverage instead of 81.1%, and 3001.dat has no shadow file at all.
  *
- * SNAP_CLEAR drops everything accumulated so far in the closure (LDCad also
- * supports clearing a single id-tagged snap; this walk only implements the
- * full-reset form, the one actually used to drop inherited info wholesale).
+ * SNAP_CLEAR drops accumulated info from the closure so far. Bare
+ * `SNAP_CLEAR` resets everything; the id-scoped form, `SNAP_CLEAR
+ * [ID=someId]`, removes only the previously-accumulated metas whose own
+ * `id` attribute matches (case-insensitively — key casing is already
+ * normalised by `parseAttrs`, and real files are consistent on value
+ * casing, but the comparison is defensive regardless).
  * SNAP_INCL pulls in another shadow file's data as if that file's part were
  * placed at `[pos]`/`[ori]` (defaulting to identity) relative to the current
  * frame — it is resolved by recursing into that referenced part's own
  * closure, exactly like a physical subfile placement, rather than being
- * reported as a snap point itself.
+ * reported as a snap point itself. An optional `[grid=...]` attribute tiles
+ * that inclusion into a repeated array (see `expandGrid`); each cell is a
+ * separate recursion at its own offset.
  */
 export async function collectSnapMetas(
   partId: string,
@@ -92,6 +98,13 @@ export async function collectSnapMetas(
   let pending = cache.get(key);
   if (!pending) {
     pending = walkClosure(partId, lib, shadow);
+    // A rejection (e.g. a transient I/O error such as EMFILE under bulk
+    // concurrent processing) must not poison this entry for the lifetime of
+    // the (lib, shadow) pair: evict it so the next call retries the walk
+    // instead of re-throwing the same stale rejection forever.
+    pending.catch(() => {
+      if (cache.get(key) === pending) cache.delete(key);
+    });
     cache.set(key, pending);
   }
 
@@ -120,7 +133,15 @@ async function walkClosure(partId: string, lib: LibraryIndex, shadow: ShadowLibr
       if (found.length > 0) hadData = true;
       for (const meta of found) {
         if (meta.type === "SNAP_CLEAR") {
-          metas.length = 0;
+          const clearId = meta.attrs.id;
+          if (clearId === undefined) {
+            metas.length = 0;
+          } else {
+            const target = clearId.toLowerCase();
+            for (let idx = metas.length - 1; idx >= 0; idx--) {
+              if (metas[idx]!.meta.attrs.id?.toLowerCase() === target) metas.splice(idx, 1);
+            }
+          }
           continue;
         }
         if (meta.type === "SNAP_INCL") {
@@ -128,7 +149,10 @@ async function walkClosure(partId: string, lib: LibraryIndex, shadow: ShadowLibr
           if (ref !== undefined) {
             const pos = parseVec3(meta.attrs.pos) ?? [0, 0, 0];
             const ori = parseMat3(meta.attrs.ori) ?? IDENTITY_ROT;
-            await walk(ref, multiply(xform, fromLdraw(pos, ori)), depth + 1);
+            const base = multiply(xform, fromLdraw(pos, ori));
+            for (const offset of expandGrid(meta.attrs)) {
+              await walk(ref, multiply(base, fromLdraw(offset, IDENTITY_ROT)), depth + 1);
+            }
           }
           continue;
         }

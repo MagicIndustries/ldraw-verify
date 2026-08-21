@@ -55,7 +55,8 @@ export class LibraryIndex {
   }
 
   has(id: string): boolean {
-    return this.parts.has(id.toLowerCase());
+    const bare = id.replace(/\\/g, "/").split("/").pop() ?? id;
+    return this.parts.has(bare.toLowerCase());
   }
 
   async readText(id: string): Promise<string> {
