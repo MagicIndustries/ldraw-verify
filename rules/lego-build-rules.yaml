@@ -412,6 +412,15 @@ rules:
       43% have their origin off the footprint centre, 60% have non-integer coordinates.
       A 2x1 45-degree slope breaks the centroid formula silently.
 
+  - id: E-10
+    name: FILE_PARSES
+    tier: HARD
+    source_tier: P1
+    statement: "Every line must be a valid LDraw line type with the correct token count and numeric fields."
+    check: transform
+    predicate: "no tokenizer error remains unreported"
+    note: "Owns L0_TOKEN_COUNT, L0_NON_NUMERIC and L0_LINE_TYPE. Without this, malformed lines are detected by the tokenizer and then silently discarded."
+
 # --------------------------------------------------------------------------
 # Technique constants the agent must use instead of part names.
 # --------------------------------------------------------------------------
