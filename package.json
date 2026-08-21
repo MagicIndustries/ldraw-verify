@@ -1,0 +1,35 @@
+{
+  "name": "ldraw-verify",
+  "version": "1.0.0",
+  "description": "Verifies LDraw/MPD model files against the LEGO build-rules corpus.",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MagicIndustries/ldraw-verify.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/MagicIndustries/ldraw-verify/issues"
+  },
+  "homepage": "https://github.com/MagicIndustries/ldraw-verify#readme",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "adm-zip": "^0.6.0",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
+    "@types/node": "^26.2.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  }
+}

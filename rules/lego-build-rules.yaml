@@ -1,0 +1,558 @@
+# LEGO build rules — machine-readable extract for an LDraw/MPD generating agent.
+# Companion to 2026-08-21-lego-build-rules.md. Detail and citations live in the
+# three -ref-*.md files; this file is the operational subset.
+#
+# WARNING ON PROVENANCE: the L-* rules derive from Jamie Berard's 2006 deck,
+# which its own author has stated is superseded by an unpublished in-house
+# version. The B-* rules are current first-party BrickLink Designer Program
+# rules and should be preferred where the two disagree.
+
+meta:
+  version: 1
+  compiled: 2026-08-21
+  ldu:
+    mm_per_ldu: 0.4          # LDraw convention, NOT a LEGO Group statement
+    stud_pitch: 20
+    plate_height: 8
+    brick_height: 24
+    tile_height: 8
+    stud_height: 4
+    stud_radius: 6
+    technic_hole_pitch: 20
+    technic_hole_axis_depth: 10
+  identities:
+    I1: "5 * plate == 2 * stud  (40 LDU)   # the enabling identity for SNOT"
+    I2: "3 * plate == 1 * brick (24 LDU)"
+    I3: "2 * plate + 2 * stud_height == 1 * brick"
+    I4: "tile_height == plate_height       # height-interchangeable"
+    I5: "5 * brick == 6 * stud (120 LDU)   # the 6:5 rule"
+    I7: "clear gap between adjacent studs == 8 LDU == bar diameter"
+
+tiers:
+  HARD:        "Stresses or damages an element. Never emit; reject and re-plan."
+  DISCOURAGED: "Works but is out-of-system, fragile, or degrades. Emit only with a stated reason."
+  STYLE:       "Craft convention with no formal definition. Advisory only; never a gate."
+
+source_tiers:
+  P1: "LEGO Group / BrickLink first-party document"
+  P2: "Verbatim quote of a named LEGO designer, published by a third party"
+  S:  "Secondary community analysis that shows its working"
+  F:  "Folklore — no traceable primary source. NOT ENCODED BELOW."
+
+check_kinds:
+  graph:         "Predicate over the connection graph. Needs the L4 hotspot extractor."
+  part_identity: "Predicate over part IDs and their relative transforms. Cheap."
+  transform:     "Predicate over a placement matrix alone. Cheapest."
+  grid:          "Predicate over translation coordinates alone. Cheapest."
+  mesh:          "Geometric interference test. Only ONE rule is genuinely this."
+  inventory:     "Arithmetic over the parts list."
+  none:          "Not mechanically checkable. Human judgement or physical test."
+
+# --------------------------------------------------------------------------
+# Current first-party rules (BrickLink Designer Program). Prefer these.
+# --------------------------------------------------------------------------
+rules:
+
+  - id: B-06
+    name: NO_FLOATING_PARTS
+    tier: HARD
+    source_tier: P1
+    statement: "Every element must be connected to the model."
+    check: graph
+    predicate: "count(connected_components) == 1"
+    confidence: high
+    priority: 1
+    note: "Trivial over an MPD and the single most common naive-generator failure."
+
+  - id: B-01
+    name: NO_STUD_IN_PINHOLE
+    tier: HARD
+    source_tier: P1
+    statement: "A System stud may not be inserted into a Technic pinhole."
+    check: graph
+    predicate: "no edge of type stud->technic_hole exists"
+    parts: [3700, 3701, 3702, 3894, 6541, 32000]
+    confidence: high
+    priority: 2
+    supersedes: D-01
+    note: "Flat ban. Stricter than the 2006 deck, which called this legal-but-not-recommended."
+
+  - id: B-05
+    name: NO_FRACTIONAL_ROTATION
+    tier: HARD
+    source_tier: P1
+    statement: "Parts may not be positioned at sub-detent rotations."
+    check: transform
+    predicate: "for single-stud parts, yaw mod 90 == 0"
+    confidence: high
+    priority: 3
+
+  - id: B-03
+    name: SNOT_LOGO_CLEARANCE
+    tier: HARD
+    source_tier: P1
+    statement: "Nothing may be placed against the face a stud points into; the moulded wordmark adds ~0.14 mm to every stud."
+    check: mesh
+    predicate: "inflate stud radius by 0.35 LDU, then test interference EXCLUDING declared mating hotspot pairs"
+    parts: [4070]
+    confidence: highest
+    priority: 4
+    corroborated_by: L-11
+    note: >
+      LDraw gives part 4070's side stud exactly zero nominal clearance at the 20 LDU
+      envelope, so an uninflated test provably cannot catch this. See the note's §2 for
+      why inflation must be scoped to non-mating surfaces — globally it false-positives
+      on every legal stack. LEGO itself shipped a violation in 11376 (2026).
+
+  - id: B-04
+    name: MUST_BE_SEPARABLE
+    tier: HARD
+    source_tier: P1
+    statement: "No construction that cannot be taken apart again."
+    check: graph
+    predicate: "flag large plate-on-plate contact area"
+    confidence: high
+
+  - id: B-02
+    name: NO_BENDING
+    tier: HARD
+    source_tier: P1
+    statement: "Only parts designed to flex may be bent."
+    check: none
+    confidence: high
+    note: "Unrepresentable in plain LDraw — a bent part has no distinct encoding."
+
+  - id: B-07
+    name: MASONRY_BOND
+    tier: HARD
+    source_tier: P1
+    statement: "Courses must overlap; vertical seams must not repeat between adjacent courses."
+    check: grid
+    predicate: "no coincident vertical seam x between adjacent courses; min overlap 2 studs"
+    confidence: high
+
+  - id: B-08
+    name: TECHNIC_SMOOTHNESS
+    tier: HARD
+    source_tier: P1
+    statement: "Working mechanisms must not stress elements."
+    check: graph
+    predicate: "drivetrain graph depth"
+    confidence: medium
+    note: "Threshold unstated by the source."
+
+  - id: B-09
+    name: SUBMISSION_LIMITS
+    tier: HARD
+    source_tier: P1
+    statement: "Part count, palette and part-economy limits apply to submissions."
+    check: inventory
+    confidence: high
+
+# --------------------------------------------------------------------------
+# Berard 2006 — historically authoritative, possibly stale.
+# --------------------------------------------------------------------------
+
+  - id: L-09
+    name: RECEIVER_SMALLER_THAN_CONNECTOR
+    tier: HARD
+    source_tier: P1
+    statement: "The receiving element must not be smaller than what is pushed into it."
+    check: mesh
+    predicate: "mesh intersection"
+    confidence: high
+    note: "THE ONLY rule in this corpus that is genuinely a collision test."
+
+  - id: L-03
+    name: MULTI_STUD_INTO_TECHNIC_HOLES
+    tier: HARD
+    source_tier: P1
+    statement: "Never more than one stud into Technic holes."
+    check: graph
+    predicate: "count(studs entering technic holes of one part) <= 1"
+    parts: [3702, 3710, 3894]
+    confidence: high
+
+  - id: L-02
+    name: TECHNIC_HOLE_BRIDGED
+    tier: HARD
+    source_tier: P1
+    statement: "A System stud in a Technic hole may not be bridged."
+    check: graph
+    predicate: "connection-graph degree"
+    parts: [3700, 3894, 6541]
+    confidence: high
+
+  - id: L-10
+    name: PLATE_BETWEEN_STUDS
+    tier: HARD
+    source_tier: P1
+    statement: "A plate may not be wedged edge-on between two studs."
+    check: part_identity
+    predicate: "part_class == plate AND orientation == edge_on AND wedged between studs"
+    parts: [3020, 3023b, 3024, 87580]
+    confidence: high
+    contrast_with: G-01
+    note: "Geometrically identical to the LEGAL tile case in LDraw. Must be a part-class predicate."
+
+  - id: L-07
+    name: CLICK_HINGE_OFF_DETENT
+    tier: HARD
+    source_tier: P1
+    statement: "Click hinges may only be set at multiples of 22.5 degrees."
+    check: transform
+    predicate: "rotation mod 22.5 == 0"
+    confidence: high
+    note: "22.5 deg proven three ways: tooth crests in clh4.dat, Berard's slide, primitive naming."
+
+  - id: L-04
+    name: PIN_NOT_IN_CLICK
+    tier: HARD
+    source_tier: P1
+    statement: "Every Technic pin must be seated in its detent."
+    check: transform
+    predicate: "discrete axial position"
+    parts: [3673, 4274, 2780]
+    confidence: high
+
+  - id: L-01
+    name: SYSTEM_TECHNIC_HEIGHT_MISMATCH
+    tier: HARD
+    source_tier: P1
+    statement: "System side-studs and Technic holes are not co-planar."
+    check: part_identity
+    predicate: "part-class co-occurrence"
+    parts: [3700, 6541, 87087]
+    confidence: high
+    note: "The 0.30 LDU error is absent from LDraw entirely. Not geometrically detectable."
+
+  - id: L-06
+    name: CONE_ON_PIN_NO_STOP
+    tier: HARD
+    source_tier: P1
+    statement: "No press-fitting an element that has no travel stop."
+    check: part_identity
+    parts: [3004, 4589]
+    confidence: medium
+    requires: part_property_db
+
+  - id: L-05
+    name: PIN_INTO_UNDERSIZED_BORE
+    tier: HARD
+    source_tier: P1
+    statement: "Pins must not be forced into non-Technic bores."
+    check: part_identity
+    parts: [3062b]
+    confidence: medium
+    requires: part_property_db
+
+  - id: L-08
+    name: PC_ON_PC_SLIDING
+    tier: HARD
+    source_tier: P1
+    statement: "Polycarbonate must not slide against polycarbonate."
+    check: part_identity
+    predicate: "material table (part x colour)"
+    confidence: medium
+    requires: part_property_db
+
+  - id: L-12
+    name: TECHNIC_HALFBEAM_WITH_SYSTEM_PLATE
+    tier: HARD
+    source_tier: P1
+    statement: "Technic half-beams with System plates."
+    check: none
+    parts: [32063]
+    confidence: low
+    note: "Unimplementable as published — the source does not state the condition precisely enough."
+
+# --------------------------------------------------------------------------
+# Discouraged — explicitly NOT hard-illegal. Do not promote these.
+# --------------------------------------------------------------------------
+
+  - id: D-01
+    name: STUD_IN_TECHNIC_HOLE_UNBRIDGED
+    tier: DISCOURAGED
+    source_tier: P1
+    statement: "A single unbridged stud in a Technic hole is technically legal but not recommended."
+    check: graph
+    confidence: high
+    superseded_by: B-01
+    note: "Current BDP rules ban this outright. Prefer B-01."
+
+  - id: D-02
+    name: OUT_OF_SYSTEM_HEIGHT
+    tier: DISCOURAGED
+    source_tier: P1
+    statement: "Hinge-plate height mismatch puts subsequent geometry out of system."
+    check: grid
+    predicate: "y mod 8 != 0"
+    confidence: low
+    note: "Over-fires badly on legitimate SNOT and jumper offsets. Advisory only."
+
+  - id: D-04
+    name: BUILD_COMPLEXITY
+    tier: DISCOURAGED
+    source_tier: P1
+    statement: "Excessive build complexity."
+    check: none
+    confidence: high
+
+# --------------------------------------------------------------------------
+# LEGAL — commonly and wrongly listed as illegal. Encode so the agent is not
+# blocked from using them.
+# --------------------------------------------------------------------------
+
+  - id: G-01
+    name: TILE_BETWEEN_STUDS
+    tier: LEGAL
+    source_tier: P1
+    statement: "A tile wedged between two studs is LEGAL. Contrast L-10, which is the same geometry with a plate."
+    parts: [3070b]
+    confidence: high
+
+  - id: G-02
+    name: CLIP_ON_TILE
+    tier: LEGAL
+    source_tier: P1
+    statement: "Clipping onto a tile is legal on modern clip mouldings."
+    parts: [4085b, 15712]
+    confidence: high
+
+  - id: G-03
+    name: FIVE_PLATES_EQUALS_TWO_STUDS
+    tier: LEGAL
+    source_tier: P1
+    statement: "The 5-plate / 2-stud SNOT identity is legal and exact (40 LDU)."
+    confidence: high
+
+# --------------------------------------------------------------------------
+# Emitter conformance (L0-L3). Not LEGO rules — LDraw correctness. Cheapest
+# checks available and they catch most real defects. Build these first.
+# --------------------------------------------------------------------------
+
+  - id: E-01
+    name: MATRIX_ROW_MAJOR
+    tier: HARD
+    source_tier: P1
+    statement: "The 9 matrix values are ROW-major: (a,b,c) is the first row. (a,d,g) is the image of the X axis."
+    check: transform
+    predicate: "det(R) == +1 AND R * transpose(R) == I"
+    priority: 1
+    note: "three.js and glm are column-major. Symmetric parts look fine when transposed — test with a slope."
+
+  - id: E-02
+    name: Y_IS_UP_NEGATIVE
+    tier: HARD
+    source_tier: P1
+    statement: "-Y is up. Stack upward by decreasing Y. Part origin sits on the TOP face."
+    check: grid
+    predicate: "all y <= 0 AND y mod 4 == 0"
+    note: "A brick on the ground has origin_y = -24. Do not add stud height when stacking."
+
+  - id: E-03
+    name: MODEL_COLOUR_CONCRETE
+    tier: HARD
+    source_tier: P1
+    statement: "Model type-1 lines use concrete colour codes. Parts use 16. Colour 24 never appears on a type-1 line."
+    check: transform
+    predicate: "colour != 16 AND colour != 24 at top level"
+    note: "Colour 16 at top level renders as fallback mustard."
+
+  - id: E-04
+    name: GRID_ALIGNMENT
+    tier: DISCOURAGED
+    source_tier: P1
+    statement: "Grid-aligned placements land on multiples of 10 in X/Z and 4 in Y."
+    check: grid
+    predicate: "x mod 10 == 0 AND z mod 10 == 0"
+    note: "Legitimately violated by jumpers (10) and deliberate SNOT. Advisory, not a gate."
+
+  - id: E-05
+    name: MPD_STRUCTURE
+    tier: HARD
+    source_tier: P1
+    statement: "First 0 FILE block is the main model. Blocks are a flat list; nesting is by reference only."
+    check: transform
+    predicate: "no content before first 0 FILE; no duplicate FILE names; reference graph acyclic"
+
+  - id: E-06
+    name: NO_BFC_IN_MODELS
+    tier: DISCOURAGED
+    source_tier: P1
+    statement: "Emit no BFC statements in a model file. They are for part files."
+    check: transform
+
+  - id: E-07
+    name: NO_DEPRECATED_PARTS
+    tier: HARD
+    source_tier: P1
+    statement: "Do not reference ~Moved to aliases or ~-prefixed hidden parts."
+    check: part_identity
+    predicate: "reject any part whose description line starts with '0 ~'"
+    note: "~16% of the parts directory is aliases or hidden parts you should not reference."
+
+  - id: E-08
+    name: PART_NUMBERS_RESOLVED
+    tier: HARD
+    source_tier: P1
+    statement: "Never invent part numbers. Resolve against the real library."
+    check: part_identity
+    predicate: "GET https://library.ldraw.org/library/official/parts/<num>.dat returns 200"
+    note: "BrickLink IDs usually but do not always coincide (LDraw 3070b vs BrickLink 3070)."
+
+  - id: E-09
+    name: ORIGIN_NOT_COMPUTED
+    tier: HARD
+    source_tier: S
+    statement: "Do not compute part origin as the centroid of its footprint. Use a per-part table."
+    check: none
+    note: >
+      Measured over a 250-part sample: only 24% have the standard studs-up signature,
+      43% have their origin off the footprint centre, 60% have non-integer coordinates.
+      A 2x1 45-degree slope breaks the centroid formula silently.
+
+# --------------------------------------------------------------------------
+# Technique constants the agent must use instead of part names.
+# --------------------------------------------------------------------------
+
+  - id: T-01
+    name: MEASURED_SLOPE_ANGLES
+    tier: HARD
+    source_tier: S
+    statement: "Slope part NAMES are systematically wrong. Use measured geometry."
+    data:
+      "45": 45.0000
+      "33": 26.5651     # atan(1/2) — the name is off by 6.4 degrees
+      "65": 65.5561
+      "75": 73.6104
+      cheese: 30.9638
+    note: "Reasoning from the name injects ~3 LDU per stud of run."
+
+  - id: T-02
+    name: EXACT_ROTATIONS_ARE_RATIONAL
+    tier: DISCOURAGED
+    source_tier: S
+    statement: "For Pythagorean-triple rotations, emit the exact rational cos/sin, never cos(36.87 deg)."
+    data:
+      "3-4-5": {cos: 0.8, sin: 0.6, angles: [36.8699, 53.1301]}
+      "5-12-13": {angles: [22.6199, 67.3801]}
+      "7-24-25": {cos: 0.96, sin: 0.28}
+      "20-21-29": {angles: [43.6028]}
+
+  - id: T-03
+    name: ONLY_N4_CLOSES
+    tier: HARD
+    source_tier: S
+    statement: "Only theta in {0,90,180,270} maps the stud lattice onto itself. N=4 is the ONLY exactly-closing rosette."
+    note: >
+      Angular closure and lattice closure are DIFFERENT tests — a 16-gon of click hinges
+      passes the first and fails the second. Best approximations: N=8 at R=41 studs
+      (0.24 LDU error); N=6/12 at R=30 (0.38). Gaussian-integer arm counts are always
+      congruent to 4 mod 8, so never 8, 16, 24, 32 or 48.
+
+  - id: T-04
+    name: MACARONI_LAW
+    tier: LEGAL
+    source_tier: S
+    statement: "Corner-round NxN parts are quarter annuli: R_outer = 20N, R_inner = 20(N-1), wall always exactly 20 LDU."
+    note: "Four of them form the only exact non-trivial closed ring in the System."
+
+  - id: T-05
+    name: CURVED_SLOPES_ARE_ELLIPTICAL
+    tier: HARD
+    source_tier: S
+    statement: "Every curved slope in the System is elliptical; none is circular."
+    parts: [11477, 93273]
+    data: {semi_axes: [56.5685, 40.9724]}
+    note: >
+      General lesson: equal matrix column norms do NOT imply a circle — check
+      orthogonality. For 11477 the columns have equal norm but a dot product of -760.63,
+      so the transform is a shear.
+
+  - id: T-06
+    name: NEVER_FORCE_A_BOW
+    tier: HARD
+    source_tier: S
+    statement: "Never shorten a run to force a curve."
+    data: {example: "1 LDU shortening on a 1x8 produces a 7.7 LDU sagitta"}
+
+  - id: T-07
+    name: LOAD_BUDGET
+    tier: DISCOURAGED
+    source_tier: S
+    statement: "Stud engagement must be budgeted against hanging mass."
+    data:
+      tension_per_stud_working_N: 1.0
+      tension_per_stud_ultimate_N: 3.9
+      shear_per_stud_N: 210
+      compression_per_stud_N: 1060
+      rule_of_thumb: "N_studs >= mass_g / 100"
+      cantilever: "P*a <= 1.0 * b^2 / 2  (a, b in studs)"
+    confidence: low
+    note: "Community measurement, not first-party. LEGO publishes no clutch-power method or threshold."
+
+  - id: T-08
+    name: TILES_ARE_SLIP_PLANES
+    tier: HARD
+    source_tier: S
+    statement: "Never place a tile in a load path."
+
+  - id: T-09
+    name: SNOT_COMMENSURABILITY
+    tier: HARD
+    source_tier: S
+    statement: "A SNOT sandwich must return to the grid."
+    check: grid
+    predicate: "(n_plate * 8 + n_brick * 24) mod 20 == 0"
+
+  - id: T-10
+    name: BRACKET_NOT_COMMENSURATE
+    tier: DISCOURAGED
+    source_tier: S
+    statement: "1x2 bracket child face offset from the parent edge is 12 LDU — NOT grid-commensurate."
+    parts: [99207, 99206, 44728, 99781]
+    data: {wall_thickness: 4, bracket_2x2_wall: 8}
+    note: "Part 3956 (2x2) has an 8 LDU wall. Parts 6231 and 4133 are NOT brackets."
+
+  - id: T-11
+    name: SCALE_THRESHOLD
+    tier: STYLE
+    source_tier: S
+    statement: "Any dimension over 1 m requires a steel armature; brick becomes cladding."
+
+# --------------------------------------------------------------------------
+# NOT mechanically checkable. Listed so the agent does not pretend otherwise.
+# --------------------------------------------------------------------------
+
+not_checkable:
+  - "Is this model structurally sound? (L6 — unsolved in the open)"
+  - "Would this actually clutch together and hold? (no zero-tolerance ground truth exists)"
+  - "Is this good building technique? (aesthetic; heuristic at best)"
+  - "Is this buildable in this order? (0 STEP records intent, nothing validates it)"
+  - "Is this part available in this colour? (needs a BrickLink/Rebrickable inventory join)"
+  - "Does it look like the thing it is supposed to be?"
+
+# --------------------------------------------------------------------------
+# Explicitly excluded. These circulate widely with no primary source. Do not
+# encode them; a corpus with invented rules is worse than none.
+# --------------------------------------------------------------------------
+
+folklore_not_encoded:
+  note: "See -ref-legality.md section 6. Traced only to one author openly speculating."
+  items: [minifig_roller_skates, log_bricks, certain_old_clip_mouldings]
+  parts_mentioned: [11253, 30136, 30137]
+
+known_wrong_claims:
+  - claim: "LEGO Ideas rejects projects for illegal building techniques"
+    reality: "False. LEGO's own help page states all building techniques are allowed and will not cause disqualification."
+  - claim: "LDD had a collision-detection toggle / LEGO mode vs Free mode"
+    reality: "False. 'Collision' appears nowhere in LDD 4.3.12 UI strings. Confusion with BrickLink Studio. LDD Extended was a COLOUR freedom."
+  - claim: "BrickLink Studio detects illegal techniques"
+    reality: "False. Zero hits for 'illegal' or 'stress' across all 123 help articles. Snapping is a placement assist, not a validator."
+  - claim: "LEGO's moulding tolerance is 0.01 mm"
+    reality: "False. LEGO's published figure is 0.005 mm (1/200 mm), from three first-party sources."
+  - claim: "14 hinge plates make an 18-stud circle"
+    reality: "False. It is 17.75 studs (-2 mm). Hinge-plate chord is fixed at 40 LDU."
+  - claim: "12 cheese slopes make a circle"
+    reality: "False. 12 x 30.9638 = 371.57 degrees, overshooting by 11.57."
