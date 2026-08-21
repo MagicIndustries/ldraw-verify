@@ -158,6 +158,59 @@ describe("collectSnapMetas", () => {
     expect(metas[0]!.gridDegraded).toBe(true);
   });
 
+  it("tags the surviving meta as gridDegraded even when a bare SNAP_CLEAR inside the degraded recursion shrinks the shared metas array below the pre-recursion length (reviewer repro)", async () => {
+    // gridclear_parent already has one accumulated meta (id=pre) before the
+    // degraded three-axis SNAP_INCL runs, so the shared `metas` array is
+    // non-empty when the recursion starts. Inside the recursion, gridclear_ref
+    // pushes id=a, a bare SNAP_CLEAR wipes the *entire* shared array (both
+    // "pre" and "a"), then id=b is pushed. The final array holds only "b",
+    // which exists solely because of the degraded grid recursion -- it must
+    // be tagged, even though tagging-by-index-range (old code) would compute
+    // an empty [before, after) window here because after <= before.
+    const shadow = fakeShadow({
+      "parts/gridclear_parent.dat":
+        "0 !LDCAD SNAP_CYL [id=pre] [gender=M] [pos=0 0 0]\n" +
+        "0 !LDCAD SNAP_INCL [ref=gridclear_ref.dat] [grid=1 2 1 0 -76 0]",
+      "parts/gridclear_ref.dat":
+        "0 !LDCAD SNAP_CYL [id=a] [gender=M] [pos=0 0 0]\n" +
+        "0 !LDCAD SNAP_CLEAR\n" +
+        "0 !LDCAD SNAP_CYL [id=b] [gender=F] [pos=1 0 0]",
+    });
+    const { metas, hadData, degradedGridCount } = await collectSnapMetas("gridclear_parent.dat", lib, shadow);
+    expect(hadData).toBe(true);
+    expect(degradedGridCount).toBe(1);
+    expect(metas).toHaveLength(1);
+    expect(metas[0]!.meta.attrs.id).toBe("b");
+    expect(metas[0]!.gridDegraded).toBe(true);
+  });
+
+  it("tags every meta produced by the degraded recursion even when an id-scoped SNAP_CLEAR inside it removes an earlier, unrelated meta (reviewer repro variant)", async () => {
+    // Same shape as above, but the SNAP_CLEAR inside the degraded recursion
+    // is id-scoped rather than bare: it removes only the pre-existing
+    // id=pre meta (via splice, not a full length reset), which shifts the
+    // index of id=a down by one. Index-range tagging would then skip id=a
+    // (its post-recursion index falls below the pre-recursion `before`)
+    // while still tagging id=b -- an inconsistent, mutation-order-dependent
+    // result. Both a and b were produced by the degraded recursion and must
+    // both be tagged.
+    const shadow = fakeShadow({
+      "parts/gridclearid_parent.dat":
+        "0 !LDCAD SNAP_CYL [id=pre] [gender=M] [pos=0 0 0]\n" +
+        "0 !LDCAD SNAP_INCL [ref=gridclearid_ref.dat] [grid=1 2 1 0 -76 0]",
+      "parts/gridclearid_ref.dat":
+        "0 !LDCAD SNAP_CYL [id=a] [gender=M] [pos=0 0 0]\n" +
+        "0 !LDCAD SNAP_CLEAR [id=pre]\n" +
+        "0 !LDCAD SNAP_CYL [id=b] [gender=F] [pos=1 0 0]",
+    });
+    const { metas, hadData, degradedGridCount } = await collectSnapMetas("gridclearid_parent.dat", lib, shadow);
+    expect(hadData).toBe(true);
+    expect(degradedGridCount).toBe(1);
+    expect(metas).toHaveLength(2);
+    const byId = new Map(metas.map((m) => [m.meta.attrs.id, m]));
+    expect(byId.get("a")?.gridDegraded).toBe(true);
+    expect(byId.get("b")?.gridDegraded).toBe(true);
+  });
+
   it("does not tag metas as gridDegraded when grid= expands cleanly, and reports degradedGridCount 0", async () => {
     const shadow = fakeShadow({
       "parts/snapgrid_parent.dat":

@@ -157,7 +157,16 @@ async function walkClosure(partId: string, lib: LibraryIndex, shadow: ShadowLibr
   let degradedGridCount = 0;
   const visiting = new Set<string>();
 
-  async function walk(id: string, xform: Mat4, depth: number): Promise<void> {
+  // `inDegradedGrid` is threaded through the walk rather than recovered
+  // afterwards from array-length arithmetic. Tagging by index range
+  // (`before`/`after metas.length`) assumed the shared `metas` array only
+  // grows during a recursive call, but SNAP_CLEAR (bare or id-scoped)
+  // mutates that same shared array and can shrink it below `before` or
+  // splice out entries ahead of it, silently detaching the tag from the
+  // metas that earned it. Tagging at the moment a meta is pushed is immune
+  // to that: it doesn't matter how SNAP_CLEAR reorders or shrinks the array
+  // afterwards, because the flag was already recorded on the object itself.
+  async function walk(id: string, xform: Mat4, depth: number, inDegradedGrid: boolean): Promise<void> {
     if (depth > MAX_DEPTH) return;
     const entry = lib.get(id);
     if (!entry) return;
@@ -191,22 +200,18 @@ async function walkClosure(partId: string, lib: LibraryIndex, shadow: ShadowLibr
             const base = multiply(xform, fromLdraw(pos, ori));
             const { offsets, degraded } = expandGridWithStatus(meta.attrs);
             if (degraded) degradedGridCount++;
+            // Once inside a degraded expansion, everything pulled in
+            // through it stays tagged even if a further-nested SNAP_INCL's
+            // own grid= happens to expand cleanly — the outer recursion is
+            // still only representing one of several tiled instances.
+            const nextDegraded = inDegradedGrid || degraded;
             for (const offset of offsets) {
-              const before = metas.length;
-              await walk(ref, multiply(base, fromLdraw(offset, IDENTITY_ROT)), depth + 1);
-              // Every meta collected by this recursion represents only one
-              // of what a fully-expanded grid should have produced — tag
-              // them so a caller can tell they're incomplete.
-              if (degraded) {
-                for (let idx = before; idx < metas.length; idx++) {
-                  metas[idx] = { ...metas[idx]!, gridDegraded: true };
-                }
-              }
+              await walk(ref, multiply(base, fromLdraw(offset, IDENTITY_ROT)), depth + 1, nextDegraded);
             }
           }
           continue;
         }
-        metas.push({ meta, xform });
+        metas.push({ meta, xform, ...(inDegradedGrid ? { gridDegraded: true as const } : {}) });
       }
     }
 
@@ -214,12 +219,12 @@ async function walkClosure(partId: string, lib: LibraryIndex, shadow: ShadowLibr
     for (const [i, raw] of partText.split(/\r?\n/).entries()) {
       const token = tokenizeLine(raw, i + 1);
       if (token.kind !== "subfile") continue;
-      await walk(token.name, multiply(xform, fromLdraw(token.pos, token.mat)), depth + 1);
+      await walk(token.name, multiply(xform, fromLdraw(token.pos, token.mat)), depth + 1, inDegradedGrid);
     }
 
     visiting.delete(key);
   }
 
-  await walk(partId, IDENTITY4, 0);
+  await walk(partId, IDENTITY4, 0, false);
   return { metas, hadData, degradedGridCount };
 }
