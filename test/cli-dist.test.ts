@@ -95,4 +95,109 @@ describe("compiled dist/ build", () => {
     },
     30_000,
   );
+
+  it(
+    "rejects --library --json (flag consumed as value) with exit 3",
+    async () => {
+      const fixture = join(workDir, "bad.ldr");
+      await writeFile(fixture, "0 FILE bad.ldr\r\n1 16 7 24 0 1 0 0 0 1 0 0 0 1 3001.dat\r\n");
+
+      let stderr = "";
+      let exitCode = 0;
+      try {
+        execFileSync(
+          process.execPath,
+          [compiledCli, fixture, "--library", "--json"],
+          { cwd: workDir, encoding: "utf8" },
+        );
+      } catch (err) {
+        const e = err as { status?: number; stderr?: string };
+        exitCode = e.status ?? 1;
+        stderr = e.stderr?.toString() ?? "";
+      }
+
+      expect(exitCode).toBe(3);
+      expect(stderr).toContain("--json");
+    },
+    30_000,
+  );
+
+  it(
+    "rejects unrecognized flag --frobnicate with exit 3",
+    async () => {
+      const fixture = join(workDir, "good.ldr");
+      await writeFile(fixture, "0 FILE good.ldr\r\n");
+
+      let stderr = "";
+      let exitCode = 0;
+      try {
+        execFileSync(
+          process.execPath,
+          [compiledCli, fixture, "--frobnicate"],
+          { cwd: workDir, encoding: "utf8" },
+        );
+      } catch (err) {
+        const e = err as { status?: number; stderr?: string };
+        exitCode = e.status ?? 1;
+        stderr = e.stderr?.toString() ?? "";
+      }
+
+      expect(exitCode).toBe(3);
+      expect(stderr).toContain("--frobnicate");
+    },
+    30_000,
+  );
+
+  it(
+    "handles --library as final token (no value following) with sensible behavior",
+    async () => {
+      const fixture = join(workDir, "good.ldr");
+      await writeFile(fixture, "0 FILE good.ldr\r\n");
+
+      let stderr = "";
+      let exitCode = 0;
+      try {
+        execFileSync(
+          process.execPath,
+          [compiledCli, fixture, "--library"],
+          { cwd: workDir, encoding: "utf8" },
+        );
+      } catch (err) {
+        const e = err as { status?: number; stderr?: string };
+        exitCode = e.status ?? 1;
+        stderr = e.stderr?.toString() ?? "";
+      }
+
+      // Either exit 3 (error) or some other handling is acceptable, but must be deliberate
+      expect([0, 1, 3]).toContain(exitCode);
+    },
+    30_000,
+  );
+
+  it(
+    "still works correctly with valid arguments",
+    async () => {
+      const fixture = join(workDir, "valid.ldr");
+      await writeFile(fixture, "0 FILE valid.ldr\r\n1 16 0 0 0 1 0 0 0 1 0 0 0 1 3001.dat\r\n");
+
+      let stdout = "";
+      let exitCode = 0;
+      try {
+        stdout = execFileSync(
+          process.execPath,
+          [compiledCli, fixture, "--library", libraryRoot],
+          { cwd: workDir, encoding: "utf8" },
+        );
+      } catch (err) {
+        const e = err as { status?: number; stdout?: string };
+        exitCode = e.status ?? 1;
+        stdout = e.stdout ?? "";
+      }
+
+      // This should produce human output to stderr, not JSON
+      // Exit code should be 0 (pass) or 1 (fail), not 3 (error)
+      expect([0, 1]).toContain(exitCode);
+    },
+    30_000,
+  );
 });

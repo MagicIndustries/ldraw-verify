@@ -4,14 +4,48 @@ import { renderJson } from "./report/json.js";
 import { verifyFile } from "./verify.js";
 import type { VerifyOptions } from "./verify.js";
 
+const KNOWN_VALUE_FLAGS = new Set(["library", "shadow-dir", "rules"]);
+const KNOWN_BOOLEAN_FLAGS = new Set(["json"]);
+const ALL_KNOWN_FLAGS = new Set([...KNOWN_VALUE_FLAGS, ...KNOWN_BOOLEAN_FLAGS]);
+
 function flag(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
-  return i === -1 ? undefined : process.argv[i + 1];
+  if (i === -1) return undefined;
+
+  // For value-taking flags, verify the next token exists and is not itself a flag
+  if (KNOWN_VALUE_FLAGS.has(name)) {
+    const value = process.argv[i + 1];
+    if (value === undefined) {
+      console.error(`usage: ldraw-verify <model.ldr|model.mpd> [--library <dir>] [--shadow-dir <dir>] [--rules <path>] [--json]`);
+      console.error(`error: flag --${name} requires a value`);
+      process.exit(3);
+    }
+    if (value.startsWith("--")) {
+      console.error(`usage: ldraw-verify <model.ldr|model.mpd> [--library <dir>] [--shadow-dir <dir>] [--rules <path>] [--json]`);
+      console.error(`error: flag --${name} has value '${value}' which is itself a flag`);
+      process.exit(3);
+    }
+    return value;
+  }
+
+  return undefined;
+}
+
+// Validate all flags in argv
+for (const arg of process.argv.slice(2)) {
+  if (arg.startsWith("--")) {
+    const flagName = arg.slice(2);
+    if (!ALL_KNOWN_FLAGS.has(flagName)) {
+      console.error("usage: ldraw-verify <model.ldr|model.mpd> [--library <dir>] [--shadow-dir <dir>] [--rules <path>] [--json]");
+      console.error(`error: unrecognized flag --${flagName}`);
+      process.exit(3);
+    }
+  }
 }
 
 const file = process.argv[2];
 if (!file || file.startsWith("--")) {
-  console.error("usage: ldraw-verify <model.ldr|model.mpd> [--library <dir>] [--shadow-dir <dir>] [--json]");
+  console.error("usage: ldraw-verify <model.ldr|model.mpd> [--library <dir>] [--shadow-dir <dir>] [--rules <path>] [--json]");
   process.exit(3);
 }
 
