@@ -38,6 +38,29 @@ export interface ConnectionGraph {
    * able to tell apart from "we know nothing about this part".
    */
   degradedGridPlacements: number[];
+  /**
+   * Placement indices whose *only* connecting hotspots are SNAP_CLP.
+   *
+   * SNAP_CLP (clip) metas genuinely carry no gender attribute in the real
+   * shadow library (160/160 occurrences bar one stray exception), and a
+   * clip's real physical pairing -- gripping a cylindrical bar -- is a
+   * geometric relation this tool does not implement (see Finding 3 in
+   * task-10-report.md: implementing it would mean shipping an unvalidated
+   * geometric rule, which this tool's central principle rules out).
+   * `hotspotsCompatible` therefore never pairs a SNAP_CLP hotspot with
+   * anything, by design, not by data gap.
+   *
+   * A placement whose only physical link to the rest of the model is a
+   * clip or hinge (a flag, a tool in a minifig's hand, a Technic hinge
+   * chain) is therefore structurally unable to gain an edge here, and
+   * would look identical to a genuinely disconnected part to a naive
+   * "one component" check. This field names those placements explicitly
+   * -- in the same spirit as `degradedGridPlacements` -- so a later
+   * component rule can recognise "isolated because of an unmodelled clip"
+   * and decline to fail the model for it, instead of silently reporting a
+   * false disconnection.
+   */
+  clipOnlyPlacements: number[];
 }
 
 /** World-space distance (LDU) within which two hotspots are considered coincident. */
@@ -45,7 +68,22 @@ const POS_TOL = 1.0;
 /** Tolerance on 1 - |cos(angle)| between two hotspot axes to count as aligned (parallel or anti-parallel both pass). */
 const AXIS_TOL = 0.1;
 
+/**
+ * SNAP_CLP hotspots are never eligible to pair with anything -- see
+ * `ConnectionGraph.clipOnlyPlacements`. This is checked ahead of, and
+ * independent of, the kind-equality check below: a clip shouldn't even
+ * pair with another clip, since two clips don't grip each other and the
+ * one real occurrence of an explicit `[gender=F]` on a SNAP_CLP in the
+ * corpus (out of 160) is not something this tool treats as load-bearing.
+ */
+const UNPAIRABLE_KINDS = new Set(["SNAP_CLP"]);
+
 function hotspotsCompatible(x: Hotspot, y: Hotspot): boolean {
+  if (UNPAIRABLE_KINDS.has(x.kind) || UNPAIRABLE_KINDS.has(y.kind)) return false;
+  // Two hotspots of different kinds (e.g. a SNAP_CYL and a coincident
+  // SNAP_GEN) must not pair just because they happen to share a point and
+  // opposite genders -- kind is part of what makes a connection real.
+  if (x.kind !== y.kind) return false;
   if (x.gender === y.gender) return false;
   const d = Math.hypot(x.pos[0] - y.pos[0], x.pos[1] - y.pos[1], x.pos[2] - y.pos[2]);
   if (d > POS_TOL) return false;
@@ -139,6 +177,7 @@ export async function buildGraph(
 ): Promise<ConnectionGraph> {
   const unknownPlacements: number[] = [];
   const degradedGridPlacements: number[] = [];
+  const clipOnlyPlacements: number[] = [];
   const all: LocatedHotspot[] = [];
 
   for (const p of model.placements) {
@@ -146,7 +185,12 @@ export async function buildGraph(
     if (!hadData) unknownPlacements.push(p.index);
     if (degradedGridCount > 0) degradedGridPlacements.push(p.index);
 
-    for (const h of metasToHotspots(metas)) {
+    const hotspots = metasToHotspots(metas);
+    if (hotspots.length > 0 && hotspots.every((h) => UNPAIRABLE_KINDS.has(h.kind))) {
+      clipOnlyPlacements.push(p.index);
+    }
+
+    for (const h of hotspots) {
       all.push({
         hotspot: { ...h, pos: applyPoint(p.world, h.pos), axis: applyDir(p.world, h.axis) },
         placementIndex: p.index,
@@ -200,6 +244,7 @@ export async function buildGraph(
     coverage: { withData, total, ratio: total === 0 ? 1 : withData / total },
     unknownPlacements,
     degradedGridPlacements,
+    clipOnlyPlacements,
     components: countComponents(total, edges),
   };
 }

@@ -67,21 +67,45 @@ export function metasToHotspots(placed: PlacedMeta[]): Hotspot[] {
   for (const { meta, xform } of placed) {
     if (!CONNECTING.has(meta.type)) continue;
 
-    const gender: Gender = (meta.attrs.gender ?? "M").toUpperCase().startsWith("F") ? "female" : "male";
+    // SNAP_FGR carries gender under `genderOfs`, not `gender` (confirmed
+    // against the real shadow library: 335 SNAP_FGR occurrences, all
+    // `genderOfs=M`/`genderOfs=F` -- 227 M, 108 F -- none `gender=`).
+    // `parseAttrs` lowercases attribute *names* but not values, so the key
+    // to read is `genderofs` and the values stay the real "M"/"F" casing.
+    // Every other connecting type here uses `gender` when it carries
+    // gender data at all, so `gender` is tried first and `genderofs` is
+    // the fallback -- this covers SNAP_FGR without changing behaviour for
+    // SNAP_CYL/SNAP_SPH/SNAP_GEN. SNAP_CLP carries neither (see Finding 3
+    // in task-10-report.md: it genuinely has no gender data in the real
+    // library, so it keeps defaulting to "M" here -- `graph.ts`'s
+    // kind-compatibility check means that default can never produce a
+    // spurious pairing).
+    const genderRaw = meta.attrs.gender ?? meta.attrs.genderofs ?? "M";
+    const gender: Gender = genderRaw.toUpperCase().startsWith("F") ? "female" : "male";
     const base = vec3(numbers(meta.attrs.pos));
 
     const oriNums = numbers(meta.attrs.ori);
     const oriMat: Mat3 = oriNums.length === 9 ? (oriNums as unknown as Mat3) : IDENTITY_ROT;
-    // Translation is irrelevant for a direction vector; fromLdraw needs a
-    // Vec3 regardless, so pass the origin rather than reusing `base` (which
-    // would make the axis calculation misleadingly look position-dependent).
-    const worldAxis = applyDir(xform, applyDir(fromLdraw([0, 0, 0], oriMat), DOWN));
+    // The meta's own local frame: origin at `base`, rotated by `ori`. Both
+    // the axis direction and the grid offset below are expressed in this
+    // frame, so both must be carried through it -- following closure.ts's
+    // SNAP_INCL handling, which composes pos/ori/grid-offset as one matrix
+    // product (`multiply(xform, fromLdraw(pos, ori))`, then the offset
+    // applied through THAT) rather than adding the offset to pos unrotated.
+    // Grid offsets that skip this are silently wrong whenever the meta
+    // carries a non-identity ori: measured at 16.8% of real grid= lines
+    // (574/3421), concentrated in sideways-mounted connector banks.
+    const localMat = fromLdraw(base, oriMat);
+    const worldAxis = applyDir(xform, applyDir(localMat, DOWN));
 
     const secs = numbers(meta.attrs.secs);
     const radius = secs.length >= 2 ? secs[secs.length - 2] : undefined;
 
     for (const offset of expandGrid(meta.attrs)) {
-      const localPos: Vec3 = [base[0] + offset[0], base[1] + offset[1], base[2] + offset[2]];
+      // offset is in the meta's own (pos, ori) frame -- applyPoint rotates
+      // it by ori AND adds base, giving base + ori * offset, matching
+      // closure.ts's precedent.
+      const localPos = applyPoint(localMat, offset);
       out.push({
         kind: meta.type,
         gender,

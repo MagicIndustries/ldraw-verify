@@ -27,6 +27,25 @@ describe("pairHotspots", () => {
     const sideways = { ...female, axis: [1, 0, 0] as const };
     expect(pairHotspots([male], [sideways])).toHaveLength(0);
   });
+
+  // Finding 5: kind must be part of compatibility. Without this check, a
+  // coincident, axis-aligned, opposite-gender SNAP_CYL/SNAP_GEN pair would
+  // wrongly pair even though they're two different kinds of connector.
+  it("does not pair coincident, opposite-gender hotspots of different kinds", () => {
+    const gen: Hotspot = { ...female, kind: "SNAP_GEN" };
+    expect(pairHotspots([male], [gen])).toHaveLength(0);
+  });
+
+  // Finding 3 (decision b): SNAP_CLP has no validated geometric pairing
+  // rule, so it must never pair with anything -- not even another SNAP_CLP
+  // that happens to carry an explicit opposite gender (the corpus has
+  // exactly one SNAP_CLP with a [gender=] attribute at all; this tool
+  // doesn't treat that as load-bearing).
+  it("never pairs SNAP_CLP hotspots, even same-kind ones with opposite gender", () => {
+    const clipM: Hotspot = { kind: "SNAP_CLP", gender: "male", pos: [0, 0, 0], axis: [0, -1, 0] };
+    const clipF: Hotspot = { kind: "SNAP_CLP", gender: "female", pos: [0, 0, 0], axis: [0, -1, 0] };
+    expect(pairHotspots([clipM], [clipF])).toHaveLength(0);
+  });
 });
 
 // buildGraph needs a real LibraryIndex (private fields, backed by a real
@@ -95,6 +114,43 @@ describe("buildGraph", () => {
     expect(g.edges).toHaveLength(1);
   });
 
+  // Finding 3 (decision b): a placement whose only connecting meta is
+  // SNAP_CLP can never gain an edge (see hotspotsCompatible), so it would
+  // look like a genuinely disconnected part -- a false failure for e.g. a
+  // flag or a tool held only by a minifig hand's clip. clipOnlyPlacements
+  // names it explicitly so a later component rule can tell "isolated
+  // because of an unmodelled clip" apart from "actually disconnected".
+  it("flags a placement whose only connectivity is SNAP_CLP via clipOnlyPlacements, without inventing an edge for it", async () => {
+    const shadow = fakeShadow({
+      "parts/male.dat": "0 !LDCAD SNAP_CYL [gender=M] [pos=0 0 0]",
+      "parts/female.dat": "0 !LDCAD SNAP_CYL [gender=F] [pos=0 0 0]",
+      // A real clip shape (radius/length/pos), same as the minifig hand's
+      // own shadow file, but with no gender data -- because real SNAP_CLP
+      // metas don't carry any.
+      "parts/clip.dat": "0 !LDCAD SNAP_CLP [radius=4] [length=11] [center=true] [pos=0 -1 -10]",
+    });
+    const model = modelOf([placement(0, "male.dat"), placement(1, "female.dat"), placement(2, "clip.dat")]);
+    const g = await buildGraph(model, lib, shadow);
+    // The male/female pair still connects normally.
+    expect(g.edges).toHaveLength(1);
+    // The clip-only placement is isolated (no validated pairing rule for
+    // it) but explicitly named, not silently dropped or silently failed.
+    expect(g.clipOnlyPlacements).toEqual([2]);
+    expect(g.components).toBe(2);
+  });
+
+  it("does not flag a placement in clipOnlyPlacements when it also has a non-clip connecting meta", async () => {
+    const shadow = fakeShadow({
+      "parts/female.dat": "0 !LDCAD SNAP_CYL [gender=F] [pos=0 0 0]",
+      "parts/mixed.dat":
+        "0 !LDCAD SNAP_CYL [gender=M] [pos=0 0 0]\n0 !LDCAD SNAP_CLP [radius=4] [length=8] [pos=10 0 0]",
+    });
+    const model = modelOf([placement(0, "mixed.dat"), placement(1, "female.dat")]);
+    const g = await buildGraph(model, lib, shadow);
+    expect(g.clipOnlyPlacements).toEqual([]);
+    expect(g.edges).toHaveLength(1);
+  });
+
   it("finds a coincident pair even when it straddles a spatial-hash bucket boundary", async () => {
     const shadow = fakeShadow({
       "parts/male.dat": "0 !LDCAD SNAP_CYL [gender=M] [pos=0 0 0]",
@@ -145,5 +201,95 @@ describe("buildGraph", () => {
     // this on any reasonable machine; the bucketed version comfortably
     // does.
     expect(elapsedMs).toBeLessThan(5000);
+  });
+});
+
+// Finding 4: the spatial-hash bucket-and-probe path in buildGraph had no
+// evidence beyond one hand-picked boundary case and a performance test
+// whose points are 20 LDU apart (never adjacent-bucket neighbours). This
+// generates scattered hotspots with many near-coincident pairs -- some
+// inside tolerance, some just outside, mixed genders and kinds -- and
+// checks buildGraph's edge set against a brute-force pairHotspots-based
+// oracle computed independently (every placement pair, not via the
+// spatial hash), with a fixed seed so any failure reproduces exactly.
+describe("buildGraph spatial-hash differential test", () => {
+  // Deterministic PRNG (mulberry32) so a failure is exactly reproducible.
+  function mulberry32(seed: number): () => number {
+    let s = seed;
+    return () => {
+      s = (s + 0x6d2b79f5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  const identRot: [number, number, number, number, number, number, number, number, number] = [
+    1, 0, 0, 0, 1, 0, 0, 0, 1,
+  ];
+
+  it("agrees with a brute-force pairHotspots oracle over scattered, near-coincident hotspots", async () => {
+    const rand = mulberry32(0xc0ffee);
+    const shadow = fakeShadow({
+      "parts/cyl_m.dat": "0 !LDCAD SNAP_CYL [gender=M] [pos=0 0 0]",
+      "parts/cyl_f.dat": "0 !LDCAD SNAP_CYL [gender=F] [pos=0 0 0]",
+      "parts/gen_m.dat": "0 !LDCAD SNAP_GEN [gender=M] [pos=0 0 0]",
+      "parts/gen_f.dat": "0 !LDCAD SNAP_GEN [gender=F] [pos=0 0 0]",
+    });
+
+    interface Generated {
+      pos: [number, number, number];
+      gender: "male" | "female";
+      kind: "SNAP_CYL" | "SNAP_GEN";
+    }
+    const generated: Generated[] = [];
+    const placements: Placement[] = [];
+
+    // Clusters spread far apart (multiples of 50, tolerance is 1.0 LDU) so
+    // only within-cluster pairs can plausibly coincide -- this keeps the
+    // brute-force oracle's O(n^2) placement scan trivially fast while
+    // still producing plenty of near-coincident and boundary-adjacent
+    // pairs within each cluster.
+    const CLUSTERS = 150;
+    for (let c = 0; c < CLUSTERS; c++) {
+      const cx = c * 50;
+      const n = 2 + Math.floor(rand() * 4); // 2..5 points per cluster
+      for (let k = 0; k < n; k++) {
+        // Jitter spans roughly [-1.5, 1.5], straddling the 1.0 LDU
+        // tolerance boundary in both directions so both "just inside" and
+        // "just outside" pairs occur.
+        const jitter = () => (rand() - 0.5) * 3;
+        const pos: [number, number, number] = [cx + jitter(), jitter(), jitter()];
+        const gender: "male" | "female" = rand() < 0.5 ? "male" : "female";
+        const kind: "SNAP_CYL" | "SNAP_GEN" = rand() < 0.5 ? "SNAP_CYL" : "SNAP_GEN";
+        generated.push({ pos, gender, kind });
+        const partId = kind === "SNAP_CYL" ? (gender === "male" ? "cyl_m.dat" : "cyl_f.dat") : gender === "male" ? "gen_m.dat" : "gen_f.dat";
+        placements.push(placement(placements.length, partId, fromLdraw(pos, identRot)));
+      }
+    }
+
+    const model = modelOf(placements);
+    const g = await buildGraph(model, lib, shadow);
+    const actualPairs = g.edges.map((e) => `${e.a},${e.b}`).sort();
+
+    // Independent brute-force oracle, built directly from the generated
+    // ground truth (not from buildGraph's own hotspot extraction), and
+    // compared pairwise via the real pairHotspots export.
+    const expectedPairs: string[] = [];
+    for (let i = 0; i < generated.length; i++) {
+      for (let j = i + 1; j < generated.length; j++) {
+        const gi = generated[i]!;
+        const gj = generated[j]!;
+        const hi: Hotspot = { kind: gi.kind, gender: gi.gender, pos: gi.pos, axis: [0, -1, 0] };
+        const hj: Hotspot = { kind: gj.kind, gender: gj.gender, pos: gj.pos, axis: [0, -1, 0] };
+        if (pairHotspots([hi], [hj]).length > 0) expectedPairs.push(`${i},${j}`);
+      }
+    }
+    expectedPairs.sort();
+
+    // Sanity check that this is a meaningful test, not a vacuous pass on
+    // an empty edge set.
+    expect(expectedPairs.length).toBeGreaterThanOrEqual(10);
+    expect(actualPairs).toEqual(expectedPairs);
   });
 });
