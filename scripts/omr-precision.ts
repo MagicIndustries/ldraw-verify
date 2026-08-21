@@ -1,5 +1,5 @@
 /**
- * OMR precision harness (Task 14).
+ * OMR precision harness.
  *
  * The idea this rests on: the LDraw Official Model Repository (OMR) holds
  * scans of real, released LEGO sets. A released set contains no illegal
@@ -13,11 +13,52 @@
  * unofficial/alternate content -- see the Task 14 report for what was
  * checked and what that means for how to read a small residual rate.)
  *
+ * MEASURING EVERY TIER, NOT JUST HARD (final fix wave, item 2)
+ * -----------------------------------------------------------
+ * This harness previously skipped every finding whose tier was not HARD.
+ * That made the demote/quarantine mechanism structurally blind to the
+ * DISCOURAGED rules -- which were the worst-behaved ones on the branch:
+ * measured over 24 random OMR models, E-04 failed 24/24, E-02 24/24, E-07
+ * 23/24. Since a DISCOURAGED `fail` is what produces exit code 2
+ * (src/verify.ts's `exitCodeFor`), the tool exited nonzero on 100% of real
+ * released sets while its own precision harness reported nothing wrong.
+ * A harness that cannot see the tier responsible for the failure mode it
+ * exists to catch is not a harness.
+ *
+ * HARD and DISCOURAGED are counted with the same arithmetic but reported
+ * and judged SEPARATELY, because a fail means something different in each:
+ *
+ * - HARD is "stresses or damages an element; never emit, reject and
+ *   re-plan". A real released set cannot contain one, so a HARD fail on an
+ *   OMR model IS a false positive, and DEMOTE_AT/QUARANTINE_AT apply as
+ *   before.
+ *
+ * - DISCOURAGED is "works but is out-of-system, fragile, or degrades; emit
+ *   only with a stated reason". Real released sets legitimately DO
+ *   out-of-system things -- E-07 (references a `~Moved to` alias) fires on
+ *   nearly every real set because nearly every real set genuinely does
+ *   reference a superseded part number, authored when that number was
+ *   current. Those are TRUE positives. So a high DISCOURAGED rate is not
+ *   evidence the predicate is wrong, and demoting or quarantining a rule
+ *   for it would be weakening a predicate to make a number fall.
+ *
+ *   What a near-universal DISCOURAGED rate IS evidence of: that the rule
+ *   has no discriminating power as a GATE. A signal present on ~100% of
+ *   legitimate input cannot separate good input from bad, so it must be
+ *   read as advisory annotation, never as a rejection -- and anything
+ *   gating automation on a nonzero exit code needs to know that before it
+ *   sees it. Such rules are flagged `NON-DISCRIMINATING` below (see
+ *   `NON_DISCRIMINATING_AT`) and disclosed in the README with their
+ *   measured rate. They are NOT retiered, deleted, or silenced.
+ *
+ * The per-model exit-code distribution is reported alongside, because that
+ * is the number an integrator actually experiences, and no per-rule rate
+ * makes it visible on its own.
+ *
  * `unimplemented` and `unknown` findings are excluded from both the
  * denominator and the numerator: they are not claims the rule made about
- * the model, so they cannot be false positives (see `applied`/`hardHits`
- * below and src/verify.ts's exitCodeFor, which draws the same line for the
- * same reason).
+ * the model, so they cannot be false positives (see src/verify.ts's
+ * exitCodeFor, which draws the same line for the same reason).
  *
  * Counting is per MODEL, not per finding: a rule that emits several `fail`
  * findings against one model (e.g. once per bad placement) counts as ONE
@@ -28,19 +69,36 @@
  * model (e.g. a rule emitting a finding per placement on a 1900-part set)
  * dominate a rule's whole rate. `applicableFindings`/`falsePositiveFindings`
  * are still recorded on each row alongside the per-model counts precisely so
- * the old (finding-count) and new (model-count) framing can both be reported
- * -- see the Task 14 report.
+ * the old (finding-count) and new (model-count) framing can both be reported.
  *
- * Usage: tsx scripts/omr-precision.ts <dir-of-omr-models> [--shadow-dir <dir>]
- * (or LDCAD_SHADOW_DIR=<dir> in the environment, matching the CLI).
+ * Usage:
+ *   tsx scripts/omr-precision.ts <dir-of-omr-models> [--shadow-dir <dir>]
+ *                                [--every N] [--limit N] [--offset N]
+ * (or LDCAD_SHADOW_DIR=<dir> in the environment, matching the CLI.)
+ *
+ * `--every N` takes every Nth file from the sorted listing, `--offset N`
+ * shifts where that stride starts, and `--limit N` caps the count. A run's
+ * sample rule is echoed to stdout and recorded in precision-report.json, so
+ * a reported rate always carries the sample it was measured over instead of
+ * being quoted as if it covered the whole corpus.
  */
 import { readdir, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { verifyFile } from "../src/verify.js";
 import type { VerifyOptions } from "../src/verify.js";
+import type { Tier } from "../src/rules/types.js";
 
 const DEMOTE_AT = 0.01;
 const QUARANTINE_AT = 0.05;
+
+/**
+ * Per-model rate at or above which a DISCOURAGED rule is reported as
+ * NON-DISCRIMINATING: it fires on essentially every real, legal set, so
+ * its presence says nothing about whether a given model is unusual. See
+ * this module's doc comment for why that is a statement about the rule's
+ * value as a gate and NOT a claim that its predicate is wrong.
+ */
+const NON_DISCRIMINATING_AT = 0.95;
 
 /**
  * A single OMR model gets this long before the harness gives up on it and
@@ -49,9 +107,10 @@ const QUARANTINE_AT = 0.05;
  * indefinitely -- not a thrown error the surrounding try/catch could catch,
  * but an awaited call that simply never settled, which would otherwise
  * stall the entire run forever on a single bad input. 30s is generous
- * against the ~2-4s a normal model takes (dominated by `LibraryIndex`
- * rebuilding itself from ~26k part files on every `verifyFile` call, not
- * by anything about the model), so a timeout here is a strong signal
+ * against the ~2-4s a normal model takes (the ~26k-file `LibraryIndex`
+ * scan is now built once per process and shared -- see
+ * `LibraryIndex.fromDirectory` -- so per-model time is the model's own
+ * parse, resolve and connectivity walk), so a timeout here is a strong signal
  * something is actually wrong with that model or the tool's handling of
  * it, not just a slow but honest scan.
  */
@@ -62,8 +121,14 @@ const PER_FILE_TIMEOUT_MS = 30_000;
  * scan from a wedged one. */
 const PROGRESS_EVERY = 25;
 
+/** Tiers this harness renders a verdict on. STYLE/LEGAL entries never
+ * produce a `fail` -- the registry reports them as `informational` -- so
+ * there is nothing to measure for them. */
+const MEASURED_TIERS: Tier[] = ["HARD", "DISCOURAGED"];
+
 interface PrecisionRow {
   ruleId: string;
+  tier: Tier;
   /** Per-model counts -- what the demote/quarantine verdict is computed from. */
   falsePositives: number;
   applicable: number;
@@ -72,7 +137,17 @@ interface PrecisionRow {
   falsePositiveFindings: number;
   applicableFindings: number;
   findingRate: number;
-  verdict: "keep" | "DEMOTE" | "QUARANTINE";
+  /**
+   * HARD rules get "keep"/"DEMOTE"/"QUARANTINE" -- a judgement on a
+   * measured FALSE-POSITIVE rate, since a real released set cannot contain
+   * a HARD violation. DISCOURAGED rules get
+   * "keep"/"NON-DISCRIMINATING" -- a judgement on how much the signal
+   * separates anything, since a real released set legitimately CAN contain
+   * a DISCOURAGED technique and those fails may be entirely true. The two
+   * vocabularies are deliberately distinct so a DISCOURAGED row can never
+   * be read as "this rule is wrong that often".
+   */
+  verdict: "keep" | "DEMOTE" | "QUARANTINE" | "NON-DISCRIMINATING";
 }
 
 interface SkippedModel {
@@ -89,9 +164,33 @@ function formatDuration(ms: number): string {
 
 const omrDir = process.argv[2];
 if (!omrDir || omrDir.startsWith("--")) {
-  console.error("usage: tsx scripts/omr-precision.ts <dir-of-omr-models> [--shadow-dir <dir>]");
+  console.error(
+    "usage: tsx scripts/omr-precision.ts <dir-of-omr-models> [--shadow-dir <dir>] [--every N] [--offset N] [--limit N]",
+  );
   process.exit(3);
 }
+
+/**
+ * Reads a positive-integer flag, rejecting a missing or non-numeric value
+ * loudly instead of silently falling back to a default -- a sample rule
+ * that quietly differs from the one the operator typed would make every
+ * rate in the report describe an unknown sample.
+ */
+function intFlag(name: string, fallback: number, min = 1): number {
+  const at = process.argv.indexOf(name);
+  if (at === -1) return fallback;
+  const raw = process.argv[at + 1];
+  const value = Number(raw);
+  if (raw === undefined || !Number.isInteger(value) || value < min) {
+    console.error(`${name} needs an integer >= ${min}, got: ${raw ?? "(nothing)"}`);
+    process.exit(3);
+  }
+  return value;
+}
+
+const sampleEvery = intFlag("--every", 1);
+const sampleOffset = intFlag("--offset", 0, 0);
+const sampleLimit = intFlag("--limit", Number.MAX_SAFE_INTEGER);
 
 // Matches the CLI's own handling (src/cli.ts): under exactOptionalPropertyTypes,
 // an optional `shadowDir?: string` may not be assigned `undefined` explicitly --
@@ -105,7 +204,19 @@ const shadowDir = shadowFlagIndex !== -1 ? process.argv[shadowFlagIndex + 1] : p
 const startedAt = Date.now();
 
 const allEntries = await readdir(omrDir);
-const files = allEntries.filter((f) => [".ldr", ".mpd"].includes(extname(f).toLowerCase())).sort();
+const corpusFiles = allEntries.filter((f) => [".ldr", ".mpd"].includes(extname(f).toLowerCase())).sort();
+
+// The sample is a deterministic stride over the sorted listing, not a
+// random draw: quoting a rate without being able to reproduce the exact
+// sample it came from is how a measured number turns into folklore.
+const sampleRule =
+  sampleEvery === 1 && sampleLimit === Number.MAX_SAFE_INTEGER
+    ? "every model in the directory"
+    : `every ${sampleEvery}${sampleEvery === 1 ? "" : sampleEvery === 2 ? "nd" : sampleEvery === 3 ? "rd" : "th"} file by sorted name` +
+      (sampleOffset > 0 ? `, starting at offset ${sampleOffset}` : "") +
+      (sampleLimit === Number.MAX_SAFE_INTEGER ? "" : `, capped at ${sampleLimit}`);
+const files = corpusFiles.filter((_, i) => i >= sampleOffset && (i - sampleOffset) % sampleEvery === 0).slice(0, sampleLimit);
+console.error(`sample: ${files.length} of ${corpusFiles.length} models (${sampleRule})`);
 
 // Per-model counts (the framing the demote/quarantine verdict is computed
 // from): how many MODELS each rule rendered an opinion on, and how many of
@@ -116,6 +227,17 @@ const modelsFailed = new Map<string, number>();
 // the module doc comment).
 const findingsApplicable = new Map<string, number>();
 const findingsFailed = new Map<string, number>();
+/** Each measured rule's tier, taken from the findings themselves (the
+ * registry stamps the corpus tier on every finding), so a re-tiering in
+ * the corpus shows up in the report without touching this script. */
+const tierOf = new Map<string, Tier>();
+/**
+ * How many models earned each exit code. This is the number an integrator
+ * actually experiences, and it is not derivable from the per-rule rates:
+ * one rule at 100% is enough to make the whole tool's exit code useless,
+ * and nothing in a per-rule table says so out loud.
+ */
+const exitCodes = new Map<number, number>();
 const skipped: SkippedModel[] = [];
 let scanned = 0;
 
@@ -160,8 +282,15 @@ for (const [i, f] of files.entries()) {
   const applicableThisModel = new Set<string>();
   const failedThisModel = new Set<string>();
 
+  exitCodes.set(result.exitCode, (exitCodes.get(result.exitCode) ?? 0) + 1);
+
   for (const finding of result.findings) {
-    if (finding.tier !== "HARD") continue;
+    // Every tier that can produce a `fail` is measured, not just HARD --
+    // see this module's doc comment for why the HARD-only filter that used
+    // to sit here made the whole harness blind to the branch's actual
+    // failure mode.
+    if (!MEASURED_TIERS.includes(finding.tier)) continue;
+    tierOf.set(finding.ruleId, finding.tier);
     // unimplemented/unknown are not a claim about this model -- see the
     // module doc comment. Excluding them from the applicable counts keeps
     // the denominator honest: it is "models/findings this rule actually
@@ -191,11 +320,25 @@ const rows: PrecisionRow[] = [...modelsApplicable.keys()]
     const hits = modelsFailed.get(ruleId) ?? 0;
     const n = modelsApplicable.get(ruleId) ?? 0;
     const rate = n === 0 ? 0 : hits / n;
-    const verdict: PrecisionRow["verdict"] = rate >= QUARANTINE_AT ? "QUARANTINE" : rate >= DEMOTE_AT ? "DEMOTE" : "keep";
+    const tier = tierOf.get(ruleId) ?? "HARD";
+    // Two vocabularies, deliberately: see PrecisionRow.verdict. A
+    // DISCOURAGED rule is never DEMOTEd or QUARANTINEd off a rate, because
+    // its fails on a real set may all be true.
+    const verdict: PrecisionRow["verdict"] =
+      tier === "HARD"
+        ? rate >= QUARANTINE_AT
+          ? "QUARANTINE"
+          : rate >= DEMOTE_AT
+            ? "DEMOTE"
+            : "keep"
+        : rate >= NON_DISCRIMINATING_AT
+          ? "NON-DISCRIMINATING"
+          : "keep";
     const findingHits = findingsFailed.get(ruleId) ?? 0;
     const findingN = findingsApplicable.get(ruleId) ?? 0;
     return {
       ruleId,
+      tier,
       falsePositives: hits,
       applicable: n,
       rate,
@@ -207,17 +350,43 @@ const rows: PrecisionRow[] = [...modelsApplicable.keys()]
   })
   .sort((a, b) => b.rate - a.rate);
 
-console.log(`scanned ${scanned}/${files.length} OMR models (${skipped.length} skipped) in ${formatDuration(durationMs)}\n`);
-console.log("per-model (verdict is computed from this):");
-for (const r of rows) {
-  console.log(`${r.verdict.padEnd(11)} ${r.ruleId.padEnd(6)} ${r.falsePositives}/${r.applicable}  ${(r.rate * 100).toFixed(2)}%`);
+function printTable(tier: Tier, heading: string): void {
+  const tierRows = rows.filter((r) => r.tier === tier);
+  console.log(`\n${heading}`);
+  if (tierRows.length === 0) {
+    console.log("  (no rule at this tier rendered an opinion on any model in the sample)");
+    return;
+  }
+  for (const r of tierRows) {
+    console.log(
+      `${r.verdict.padEnd(19)} ${r.ruleId.padEnd(6)} ${String(r.falsePositives).padStart(4)}/${String(r.applicable).padEnd(4)} ` +
+        `${(r.rate * 100).toFixed(2).padStart(6)}%   (findings ${r.falsePositiveFindings}/${r.applicableFindings})`,
+    );
+  }
 }
-console.log("\nper-finding (old framing, for comparison -- not what the verdict is computed from):");
-for (const r of rows) {
-  console.log(
-    `${" ".repeat(11)} ${r.ruleId.padEnd(6)} ${r.falsePositiveFindings}/${r.applicableFindings}  ${(r.findingRate * 100).toFixed(2)}%`,
-  );
+
+console.log(`scanned ${scanned}/${files.length} sampled OMR models (${skipped.length} skipped) in ${formatDuration(durationMs)}`);
+console.log(`sample: ${files.length} of ${corpusFiles.length} corpus models -- ${sampleRule}\n`);
+
+printTable(
+  "HARD",
+  "HARD tier -- a fail on a real released set IS a false positive (verdict: keep / DEMOTE >= 1% / QUARANTINE >= 5%):",
+);
+printTable(
+  "DISCOURAGED",
+  "DISCOURAGED tier -- a fail on a real released set may be TRUE (real sets do out-of-system things).\n" +
+    "The rate measures discriminating power as a gate, not correctness (NON-DISCRIMINATING >= 95%):",
+);
+
+// The number an integrator actually experiences. Printed last because it
+// is the summary the per-rule tables exist to explain.
+console.log("\nper-model exit code (0 = clean, 1 = HARD fail, 2 = DISCOURAGED fail only):");
+for (const code of [0, 1, 2, 3]) {
+  const n = exitCodes.get(code) ?? 0;
+  if (n === 0 && code === 3) continue;
+  console.log(`  exit ${code}: ${n}/${scanned}  ${scanned === 0 ? "" : `${((n / scanned) * 100).toFixed(2)}%`}`);
 }
+
 if (skipped.length > 0) {
   console.log(`\n${skipped.length} model(s) failed to parse and were excluded from the counts above:`);
   for (const s of skipped) {
@@ -232,11 +401,16 @@ await writeFile(
       corpusDir: omrDir,
       generatedAt: new Date(startedAt).toISOString(),
       durationMs,
+      corpusFiles: corpusFiles.length,
+      sampleRule,
+      sampledFiles: files.length,
       totalFiles: files.length,
       scanned,
       skipped,
       demoteAt: DEMOTE_AT,
       quarantineAt: QUARANTINE_AT,
+      nonDiscriminatingAt: NON_DISCRIMINATING_AT,
+      exitCodes: Object.fromEntries([...exitCodes.entries()].sort((a, b) => a[0] - b[0])),
       rows,
     },
     null,

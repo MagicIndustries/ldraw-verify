@@ -69,7 +69,7 @@ export function exitCodeFor(findings: Finding[]): 0 | 1 | 2 {
  * rule. Rule ids not covered by any module below stay `unimplemented` by
  * design -- see the corpus and the task-13 brief for the current roster.
  */
-const ALL_RULES = [...l0Rules, ...l1Rules, ...l2Rules, ...l3Rules, ...l4Rules, ...l5Rules];
+export const ALL_RULES = [...l0Rules, ...l1Rules, ...l2Rules, ...l3Rules, ...l4Rules, ...l5Rules];
 
 export async function verifyFile(path: string, opts: VerifyOptions): Promise<VerifyResult> {
   const lib = await LibraryIndex.fromDirectory(opts.libraryRoot);

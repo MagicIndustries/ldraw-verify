@@ -81,6 +81,30 @@ rules:
       `unknown`, never touches a pass, never manufactures a fail. Pre-fix measured rate:
       100% of applicable real models (30-model sample, finding-count framing); see the
       Task 14 report for the post-fix per-model rate.
+      FINAL FIX WAVE: the rule was structurally undeliverable and is now not. It gated on
+      connectivity coverage == 100% before judging the component count, and the design
+      states the ~19% coverage gap is PERMANENT -- so on 24 of 24 real OMR models it
+      returned `unknown` (coverage 74-96%) and the only input that ever reached a verdict
+      was a two-brick test fixture. Reformulated on the asymmetry the whole layer already
+      rests on (missing data can only HIDE a connection, never invent one), in three
+      sound clauses: (1) ONE component is a `pass` at any coverage, since a hidden edge
+      can only merge components; (2) with no data gap anywhere, the count is exact and
+      >1 is a genuine `fail`; (3) a component whose every placement has complete data AND
+      no unpaired connector cannot be the far end of a hidden connection, so it is
+      provably separate even when the rest of the model has gaps. Otherwise `unknown`,
+      naming the components and the gap rather than a coverage percentage. Measurement
+      also found and fixed a real completeness gap: a [slide=true] axle or pin mates
+      anywhere ALONG its axis while hotspot pairing only sees coincident positions, so an
+      axle-plus-bush pair looked like a sealed floating island -- both of B-06's only two
+      `fail` verdicts on the 24-model sample (4519+32269 in 41999-1.mpd, 3707+4265b in
+      5571-1.mpd) were that, and both were false positives. Sliding connectors now count
+      as incomplete data. Post-fix on that sample: 2/24 models reach a verdict (both
+      `pass`), 0 false positives, 22/24 `unknown`. STATED PLAINLY, per the brief's option
+      (b) as well as (a): clause 3 is rarely satisfied on a large real model, because any
+      outward-facing stud is a free connector, so B-06 still abstains on most real sets
+      -- now for a stated per-component reason rather than because a fifth of parts will
+      never have shadow data. Closing that gap needs a geometric bound on where a
+      data-less part's unmodelled connectors could reach, which is not implemented.
 
   - id: B-01
     name: NO_STUD_IN_PINHOLE
@@ -121,7 +145,7 @@ rules:
 
   - id: B-05
     name: NO_FRACTIONAL_ROTATION
-    tier: HARD
+    tier: DISCOURAGED
     source_tier: P1
     statement: "Parts may not be positioned at sub-detent rotations."
     check: transform
@@ -148,6 +172,38 @@ rules:
       distinguishable signal this rule should keep catching. Pre-fix measured rate:
       91.18% of applicable real models (30-model sample, finding-count framing); see the
       Task 14 report for the post-fix per-model rate.
+      FINAL FIX WAVE: two further SCOPE corrections, then demoted HARD -> DISCOURAGED.
+      (a) FRAME. The check read the placement's composed WORLD rotation, so every part of
+      every deliberately tilted sub-assembly -- an angled roof, a bogie on curved track,
+      a rotated decorative module, all routine in real sets and all internally detented
+      perfectly -- was failed for not being square to the world. It now reads
+      Placement.local, the matrix the author actually wrote on the part's own line,
+      which is where a sub-detent rotation would be expressed.
+      (b) WHAT COUNTS AS A STUD. "Stud-radius male SNAP_CYL, not sliding" also matches a
+      Technic axle end (43093.dat: secs=A 6 20, an axle cross, not a round stud) and a
+      minifig limb peg (3820.dat: secs=R 6 6.25) -- connectors with no yaw detent at all,
+      and a friction pin does not carry [slide=true] because it is specifically meant not
+      to slide. The single-stud test now matches the full System stud profile, R 6 4:
+      round, stud_radius 6, stud_height 4, both from this file's own meta.ldu block.
+      Together (a) and (b) took the rule from 402 to 46 fail-findings and from 18/24 to
+      11/24 real models over a 24-model OMR sample.
+      (c) TIER. Demoted on this file's OWN tier definitions, not on the residual rate.
+      HARD is "Stresses or damages an element. Never emit; reject and re-plan." A
+      single-stud part turned off 90 degrees is held by ordinary clutch friction on a
+      round stud: nothing is stressed, nothing is damaged, and the part comes off again
+      exactly as it went on. The objection to it is that it is not reproducible in the
+      System -- verbatim the DISCOURAGED definition, "Works but is out-of-system,
+      fragile, or degrades. Emit only with a stated reason." (Contrast B-01, kept HARD:
+      a System stud forced into a Technic pinhole genuinely stresses both elements.)
+      The residual 45.83% is corroboration that the misclassification is common, not the
+      reason for the demotion: it is concentrated in parts with no rotational detent to
+      be off -- round 1x1 plates and dishes (6141, 33291, 32828, 4740, 43898), minifig
+      heads (3626*), flowers (3742), steering wheels (2819), and hinge- or pin-mounted
+      accessories (30383, 2433, 4274, 6587) -- which this tool cannot identify without a
+      per-part rotational-symmetry table it does not ship, the same class of missing
+      datum E-09 documents for part origins. NOT deleted and NOT weakened further:
+      genuine off-detent rectangular tile/plate placements remain a real signal (3040b
+      and 6091 in the same sample), and they stay reported, just not as a gate.
 
   - id: B-03
     name: SNOT_LOGO_CLEARANCE
@@ -394,7 +450,7 @@ rules:
 # --------------------------------------------------------------------------
 
   - id: E-01
-    name: MATRIX_ROW_MAJOR
+    name: MATRIX_WELL_FORMED
     tier: HARD
     source_tier: P1
     statement: "The 9 matrix values are ROW-major: (a,b,c) is the first row. (a,d,g) is the image of the X axis."
@@ -417,6 +473,12 @@ rules:
       non-orthonormality below, which is what set ORTHONORMAL_EPS. Detecting a
       transposed placement instead requires knowing the intended geometry, which
       a verifier reading one file does not have -- see `not_checkable` below.
+      FINAL FIX WAVE: renamed MATRIX_ROW_MAJOR -> MATRIX_WELL_FORMED. The old name
+      asserted exactly the thing this note says the predicate cannot detect, and the
+      name is what a consuming agent reads first; and the note's own tail still said
+      "genuine shear/transposition (~0.1+)", re-asserting the refuted claim two
+      paragraphs after refuting it (corrected to "shear/scale", matching
+      src/rules/l2-matrix.ts).
       No test in this suite exercises a transposed matrix as a failure case,
       because it would (correctly) pass; test/rules-l2-l3.test.ts pins a
       transposed rotation as a non-finding on purpose, so this is not
@@ -447,7 +509,7 @@ rules:
     source_tier: P1
     statement: "-Y is up. Stack upward by decreasing Y. Part origin sits on the TOP face."
     check: grid
-    predicate: "all y <= 0 AND y mod 4 == 0"
+    predicate: "all y <= 0 AND y mod 2 == 0"
     note: >
       A brick on the ground has origin_y = -24. Do not add stud height when stacking.
       TASK 14: demoted HARD -> DISCOURAGED. "y <= 0 throughout" and "y mod 4 == 0" are
@@ -465,6 +527,21 @@ rules:
       per-model rate. Kept as DISCOURAGED (not deleted): still useful signal that a
       placement's height sits outside the ordinary ground-referenced stacking
       convention, worth surfacing, never worth blocking on.
+      FINAL FIX WAVE: predicate corrected from "y mod 4 == 0" to "y mod 2 == 0", because
+      4 LDU is the quantum of ONE construction (an ordinary studs-up plate/brick stack),
+      not of the System. This file's own meta.ldu block gives technic_hole_axis_depth: 10
+      -- a Technic hole's axis sits 10 LDU into the brick, and 10 is not a multiple of 4,
+      so EVERY correctly seated Technic pin or axle has a Y that is 2 (mod 4). The claim
+      was false by construction for the entire Technic system. The System's actual
+      vertical lattice is the gcd of its own constants (plate 8, brick 24, stud 4,
+      Technic hole 10) = 2 LDU. Corroborating measurement over a 24-model OMR sample:
+      1381 of 1554 "not a multiple of 4" findings sat exactly at the 2-mod-4 offset, led
+      by 2780.dat/43093.dat/4274.dat (Technic pins), and the corrected predicate takes
+      the rule from 1727 to 346 fail-findings on the same sample while still catching
+      every non-integer and odd-LDU coordinate. Also note E-02 already reports `unknown`
+      -- not `fail` -- for a placement reached through a non-axis-aligned ancestor
+      transform, where a world-frame grid claim is not decidable at all
+      (src/rules/l3-grid.ts).
 
   - id: E-03
     name: MODEL_COLOUR_CONCRETE
@@ -479,10 +556,29 @@ rules:
     name: GRID_ALIGNMENT
     tier: DISCOURAGED
     source_tier: P1
-    statement: "Grid-aligned placements land on multiples of 10 in X/Z and 4 in Y."
+    statement: "Placements land on the System's own 2 LDU lattice. The ordinary studs-up lattice is 10 in X/Z and 4 in Y, but SNOT and Technic constructions legitimately land between."
     check: grid
-    predicate: "x mod 10 == 0 AND z mod 10 == 0"
-    note: "Legitimately violated by jumpers (10) and deliberate SNOT. Advisory, not a gate."
+    predicate: "x mod 2 == 0 AND z mod 2 == 0"
+    note: >
+      Legitimately violated by jumpers (10) and deliberate SNOT. Advisory, not a gate.
+      FINAL FIX WAVE, two corrections.
+      (1) DECIDABILITY. This rule asserted `fail` on exactly the placements E-02
+      declared `unknown`: a world-frame X/Z grid claim is not decidable for a placement
+      reached through a non-axis-aligned ancestor transform (an angled roof, a bogie on
+      curved track), because the part can sit exactly on-grid in its own submodel's
+      frame while its composed world X/Z is a multiple of nothing. Measured on
+      10001-1.mpd before the fix: E-02 emitted 555 `unknown` and 211 `fail`, E-04
+      emitted 590 `fail` and ZERO `unknown`, about the same placements. Both rules now
+      share one decidability gate (`undecidableInWorldFrame`, src/rules/l3-grid.ts) so
+      they cannot drift apart again.
+      (2) QUANTUM. Corrected from "x mod 10 == 0 AND z mod 10 == 0" to the System's own
+      2 LDU lattice, for the same reason as E-02: SNOT turns plate thickness (8) and
+      wall thickness (4) into HORIZONTAL offsets -- this file's own I1 identity
+      (5 plates == 2 studs) is what makes that legal -- so real sets land on 2, 4, 6 and
+      8 by construction. Measured over a 24-model OMR sample: 1015 of 1197 residuals sat
+      on exactly those offsets; the corrected predicate takes the rule from 1198 to 286
+      fail-findings while still catching all 84 fractional coordinates and the 122
+      quarter-stud (5 LDU) ones.
 
   - id: E-05
     name: MPD_STRUCTURE

@@ -23,6 +23,13 @@ const emptyGraph = (total: number): ConnectionGraph => ({
   unreliableAxisPlacements: [],
   clipOnlyPlacements: [],
   components: 1,
+  // componentOf / incompleteDataPlacements / fullyAccountedPlacements are
+  // required fields added by the B-06 reformulation (final fix wave, item
+  // 3). Every placement here is in one component with complete data; no
+  // B-05/B-01 fixture in this file exercises them.
+  componentOf: new Array<number>(total).fill(0),
+  incompleteDataPlacements: [],
+  fullyAccountedPlacements: [],
 });
 
 describe("B-05 no fractional rotation", () => {

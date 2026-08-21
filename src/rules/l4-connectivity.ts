@@ -1,79 +1,88 @@
+import type { Placement } from "../resolve/ir.js";
 import type { Finding, Rule, RuleContext } from "./types.js";
 
 /**
  * B-06 / NO_FLOATING_PARTS.
  *
- * The governing constraint (see task-11 brief): this rule must fail a model
- * only when it genuinely knows the model is in more than one piece. Where
- * the connectivity data is incomplete, the honest answer is `unknown`,
- * never `fail` and never `pass`.
+ * The governing constraint: this rule must fail a model only when it
+ * genuinely knows the model is in more than one piece. Where the
+ * connectivity data is incomplete, the honest answer is `unknown`, never
+ * `fail` and never `pass`.
  *
- * Two categories of "the tool knows it hasn't modelled this" feed into the
- * decision, on top of the coverage gate the brief already specifies:
+ * WHAT CHANGED, AND WHY IT HAD TO
+ * -------------------------------
+ * The previous formulation gated on `coverage.ratio < 1`: it demanded
+ * 100% connectivity coverage before judging the component count at all.
+ * The design (docs/design.md) states the ~19% coverage gap is PERMANENT --
+ * roughly a fifth of parts have no shadow data and never will. So that
+ * gate could never open on a real model: measured over 24 real OMR sets,
+ * B-06 returned `unknown` on 24 of 24, coverage running 74-96%. The only
+ * input that ever reached a verdict was the two-brick test fixture. A
+ * HARD rule that structurally cannot render a verdict on real input is not
+ * a check; it is a placeholder that reads like one.
  *
- * - `clipOnlyPlacements`: placements whose only connecting hotspots are
- *   SNAP_CLP. `hotspotsCompatible` (connect/graph.ts) refuses to pair a
- *   SNAP_CLP with anything, by design, because clips carry no gender data
- *   in the shadow library. A structural consequence of that refusal is
- *   that a clip-only placement can *never* gain an edge -- it is always a
- *   singleton component, on its own, regardless of where it physically
- *   sits. So every entry in `clipOnlyPlacements` accounts for exactly one
- *   component in `graph.components` that is not evidence of a floating
- *   part; it's evidence of an unmodelled-but-real attachment (a flag on a
- *   clip, a tool in a minifig hand, a hinge chain). Subtracting that count
- *   from `graph.components` before judging "more than one component"
- *   removes exactly the components this tool knows it cannot explain any
- *   other way, without needing per-component membership data (which
- *   `ConnectionGraph` does not expose -- see the file-level report for why
- *   that's a deliberate, safe simplification and not an oversight).
+ * The replacement rests on the asymmetry this whole layer already relies
+ * on: missing connectivity data can only ever HIDE a connection, never
+ * invent one (see `ConnectionGraph.incompleteDataPlacements` for the four
+ * ways data goes missing, and why each is one-directional). Consequences,
+ * in the order this rule applies them:
  *
- * - `degradedGridPlacements`: placements whose connectivity is
- *   under-reported because a `grid=` form was too complex to expand.
- *   Unlike clip-only placements, a degraded placement is *not* guaranteed
- *   to be a singleton -- the one fallback hotspot the degraded expansion
- *   still produced might coincide with something. So it cannot be
- *   subtracted from the component count the way clip-only placements can.
- *   What is knowable is the *direction* of the risk: under-reporting can
- *   only ever make the graph look more fragmented than reality (fewer
- *   hotspots means fewer possible edges), never less -- it can never
- *   manufacture a false connection. So degraded placements can only ever
- *   cast doubt on a `fail` verdict, never on a `pass`: if the adjusted
- *   component count is already <= 1, nothing here changes that. If it's
- *   > 1 while at least one degraded placement exists anywhere in the
- *   model, this tool cannot rule out "the missing grid cells would have
- *   connected it" as the explanation, so the verdict is downgraded from
- *   `fail` to `unknown` rather than asserted.
+ * 1. ONE COMPONENT IS A SOUND PASS, AT ANY COVERAGE. If the graph already
+ *    says the model is in one piece, no hidden edge can make it more than
+ *    one piece -- hidden edges only ever merge components. The old gate
+ *    reported `unknown` here, refusing to state a conclusion its own data
+ *    fully supported.
  *
- * - `unreliableAxisPlacements`: placements that collected at least one
- *   hotspot through a non-orthonormal composed transform (see
- *   `PlacedMeta.axisUnreliable` in closure.ts) -- most commonly a Technic
- *   pin/axle/bush connector reached via a shared connector-hole primitive
- *   reused at a different size deep in a part's own geometry. Confirmed
- *   directly against the real shadow library (Task 14 report):
- *   3713.dat ("Technic Bush with Two Flanges") has no shadow file of its
- *   own, and the only meta reachable through its geometry closure carries a
- *   determinant-20 composed transform, corrupting its hotspot's axis.
- *   `hotspotsCompatible`'s axis check (connect/graph.ts) can then reject a
- *   pairing that should have matched -- exactly the same "can only
- *   under-report, never over-report" direction as a degraded grid, so it is
- *   handled identically: only ever grounds to soften a `fail` to `unknown`,
- *   never to manufacture one or touch a `pass`.
+ * 2. NO GAPS ANYWHERE MEANS THE COUNT IS EXACT. If no placement in the
+ *    model is in `incompleteDataPlacements`, there is nowhere for a hidden
+ *    edge to originate, so a count above 1 is real. (This is the case the
+ *    old ratio gate approximated -- but only via coverage, which sees the
+ *    "no data at all" gap and not the degraded-grid, unreliable-axis or
+ *    unmodelled-clip ones.)
  *
- * KNOWN FALSE-NEGATIVE SURFACE (TASK 14, not fixed in this pass): both
- * `unreliableAxisPlacements` and `degradedGridPlacements` soften this rule's
- * verdict for the WHOLE model, not just for the component(s) touching the
- * affected placement -- see the `unknown` branch below, which checks
- * "does either list have anything in it anywhere" rather than "is either
- * list's placement part of the unexplained component(s)". `ConnectionGraph`
- * does not expose per-component membership (see `explainedByClips` above
- * for the same limitation), so there is no cheap way to scope the
- * softening more tightly today. The practical consequence: a single
- * unrelated unreliable-axis or degraded-grid placement anywhere in a large
- * model can mask a genuinely floating, disconnected part elsewhere in that
- * same model, downgrading a real `fail` to `unknown` where a component-
- * scoped check would still have caught it. This predates the axis-
- * unreliable signal added in this pass, which widens the same gate rather
- * than narrowing it, so it is recorded here rather than left implicit.
+ * 3. A SEALED COMPONENT IS PROVABLY SEPARATE EVEN WHEN THE REST OF THE
+ *    MODEL HAS GAPS. A hidden connection has to land on a free connector.
+ *    A component whose every placement is in `fullyAccountedPlacements` --
+ *    complete data, and every hotspot already consumed by an edge -- has
+ *    no free connector for a hidden edge to attach to, so it cannot be
+ *    joined to anything outside itself. If such a component exists
+ *    alongside at least one other component, the model is genuinely in
+ *    more than one piece, whatever the coverage elsewhere. This is the
+ *    clause that lets the rule speak about a real model at all.
+ *
+ * 4. OTHERWISE, `unknown` -- and now with the specific components named,
+ *    rather than a model-wide "coverage is not 100%".
+ *
+ * WHAT THIS RULE STILL CANNOT DO, STATED PLAINLY
+ * ----------------------------------------------
+ * Clause 3 is sound but rarely satisfied on a large real model: every
+ * exposed stud on a model's surface is a free connector, so a component
+ * containing any outward-facing stud is not sealed. Measured after this
+ * change (see .superpowers/sdd/final-fix-report.md for the sample and the
+ * numbers), B-06 still reports `unknown` on most real sets -- it just now
+ * reports it for a stated, per-component reason instead of because 19% of
+ * parts will never have shadow data. Closing that gap further needs
+ * something this tool does not have: a geometric bound on where a
+ * data-less part's unmodelled connectors could be, so that a free
+ * connector far from any data-less part could be ruled out as a hiding
+ * place. That is a real, implementable next step, and it is not
+ * implemented here.
+ *
+ * Two more limitations inherited unchanged:
+ * - `hotspotsCompatible` (connect/graph.ts) requires the two sides to
+ *   share a `kind`, which is stricter than LDCad's own pairing rules; a
+ *   real connection between two differently-kinded connectors would be
+ *   missed even at full coverage, which clause 2 does not account for.
+ *   (The one such gap that measurement actually caught -- sliding
+ *   axle/pin connectors, which mate anywhere along their axis while
+ *   pairing only sees coincident positions -- IS accounted for: those
+ *   placements are in `incompleteDataPlacements`.)
+ * - An `unreliableAxis` transform is treated as only ever able to reject a
+ *   pairing, never fabricate one. A corrupted axis could in principle
+ *   coincide with a real hotspot position AND satisfy the axis test, which
+ *   would be a fabricated edge; that is judged implausible (a fabricated
+ *   edge needs sub-LDU position coincidence too, which is a strong
+ *   constraint) rather than impossible.
  */
 const noFloatingParts: Rule = {
   id: "B-06",
@@ -99,96 +108,99 @@ const noFloatingParts: Rule = {
       ];
     }
 
-    const { total, withData, ratio } = graph.coverage;
+    const { total } = graph.coverage;
     if (total === 0) return [];
 
-    // Placements with literally zero shadow data (not clip-only, not
-    // degraded -- no data reached at all) mean the tool cannot tell
-    // "not connected" from "unmodelled" for them. Any such gap makes the
-    // component count as a whole untrustworthy, so this is a blanket
-    // gate ahead of the clip/degraded reasoning below, not something
-    // clip-only or degraded accounting can rescue.
-    if (ratio < 1) {
+    // Clause 1: one component is a sound pass at any coverage -- hidden
+    // edges can only merge components, never split them.
+    if (graph.components <= 1) return [];
+
+    const members = new Map<number, number[]>();
+    for (let i = 0; i < total; i++) {
+      const root = graph.componentOf[i];
+      if (root === undefined) continue;
+      const list = members.get(root);
+      if (list) list.push(i);
+      else members.set(root, [i]);
+    }
+
+    const locate = (indices: number[]): Finding["locations"] =>
+      indices
+        .slice(0, 10)
+        .map((i) => model.placements[i])
+        .filter((p): p is Placement => p !== undefined)
+        .map((p) => ({ file: p.file, line: p.line, partId: p.partId }));
+
+    // Clause 2: with no gap anywhere in the model, the component count is
+    // exact and a count above 1 is a genuine multi-piece model.
+    if (graph.incompleteDataPlacements.length === 0) {
       return [
         {
           ruleId: meta.id,
           tier: meta.tier,
-          status: "unknown",
-          message: `connectivity data covers ${withData}/${total} placements (${Math.round(ratio * 100)}%); component count is not decidable`,
-          locations: graph.unknownPlacements.slice(0, 10).map((i) => {
-            const p = model.placements[i]!;
-            return { file: p.file, line: p.line, partId: p.partId };
-          }),
-          evidence: { coverage: graph.coverage, components: graph.components },
+          status: "fail",
+          message:
+            `model has ${graph.components} disconnected components; every placement's connectivity data ` +
+            `is complete, so the component count is exact and every element must be connected`,
+          locations: locate([...members.values()].flatMap((m) => m.slice(0, 1))),
+          evidence: { components: graph.components, coverage: graph.coverage },
         },
       ];
     }
 
-    // Every clip-only placement is structurally guaranteed to be its own
-    // singleton component (see doc comment above), so it can be
-    // subtracted from the raw component count exactly, without needing
-    // per-component membership: it accounts for precisely one "extra"
-    // component that is explained, not floating.
-    const explainedByClips = graph.clipOnlyPlacements.length;
-    const adjustedComponents = graph.components - explainedByClips;
-
-    if (adjustedComponents <= 1) return [];
-
-    // Past this point the model looks like it has a genuinely floating
-    // part -- unless there's a degraded-grid or unreliable-axis placement
-    // anywhere that could be the (or an) actual explanation. Both signals
-    // can only make components look more fragmented, never less, so they
-    // are only ever grounds to soften a `fail`, never to manufacture or
-    // hide one -- see this rule's doc comment for why each one only ever
-    // under-reports.
-    if (graph.degradedGridPlacements.length > 0 || graph.unreliableAxisPlacements.length > 0) {
-      const reasons: string[] = [];
-      if (graph.degradedGridPlacements.length > 0) {
-        reasons.push(
-          `${graph.degradedGridPlacements.length} placement(s) have under-reported connectivity from an unexpandable grid= form`,
-        );
-      }
-      if (graph.unreliableAxisPlacements.length > 0) {
-        reasons.push(
-          `${graph.unreliableAxisPlacements.length} placement(s) have connectivity computed through a non-orthonormal transform`,
-        );
-      }
-      const locations = [...graph.degradedGridPlacements, ...graph.unreliableAxisPlacements]
-        .slice(0, 10)
-        .map((i) => {
-          const p = model.placements[i]!;
-          return { file: p.file, line: p.line, partId: p.partId };
-        });
+    // Clause 3: a component with no free connector anywhere in it cannot
+    // be the far end of a hidden connection, so it is genuinely separate
+    // from the rest of the model even though the rest has gaps.
+    const accounted = new Set(graph.fullyAccountedPlacements);
+    const sealed = [...members.values()].filter((m) => m.every((i) => accounted.has(i)));
+    if (sealed.length > 0) {
+      const floating = sealed.flat();
       return [
         {
           ruleId: meta.id,
           tier: meta.tier,
-          status: "unknown",
+          status: "fail",
           message:
-            `model has ${graph.components} components (${adjustedComponents} unexplained by clip-only ` +
-            `connectors); ${reasons.join(" and ")}, so a genuinely floating part cannot be distinguished ` +
-            `from a missed connection`,
-          locations,
+            `${sealed.length} component(s) covering ${floating.length} placement(s) are connected only to ` +
+            `themselves: every placement in them has complete connectivity data and no unpaired connector, ` +
+            `so no undetected connection can reach them from the rest of the model's ${graph.components} ` +
+            `components. Every element must be connected`,
+          locations: locate(floating),
           evidence: {
             components: graph.components,
-            adjustedComponents,
-            degradedGridPlacements: graph.degradedGridPlacements,
-            unreliableAxisPlacements: graph.unreliableAxisPlacements,
+            sealedComponents: sealed.length,
+            sealedPlacements: floating.slice(0, 50),
+            coverage: graph.coverage,
           },
         },
       ];
     }
 
+    // Clause 4: not decidable -- and say which components are the problem
+    // and why, rather than reporting a model-wide coverage percentage.
+    const unexplained = [...members.values()].filter((m) => m.some((i) => accounted.has(i)));
     return [
       {
         ruleId: meta.id,
         tier: meta.tier,
-        status: "fail",
+        status: "unknown",
         message:
-          `model has ${graph.components} disconnected components (${adjustedComponents} unexplained by ` +
-          `clip-only connectors); every element must be connected`,
-        locations: [],
-        evidence: { components: graph.components, adjustedComponents, clipOnlyPlacements: graph.clipOnlyPlacements },
+          `model has ${graph.components} components and ${graph.incompleteDataPlacements.length}/${total} ` +
+          `placement(s) whose connectivity data is incomplete (no shadow data, an unexpandable grid= form, ` +
+          `a non-orthonormal transform, an unmodelled clip, a sliding axle/pin connector, or no ` +
+          `modelled connector at all). Every ` +
+          `component still has at least one unpaired connector or an incomplete placement, so a genuinely ` +
+          `floating part cannot be distinguished from a connection this tool did not model`,
+        locations: locate(graph.incompleteDataPlacements),
+        evidence: {
+          components: graph.components,
+          coverage: graph.coverage,
+          incompleteDataPlacements: graph.incompleteDataPlacements.length,
+          componentsWithSomeAccountedPlacement: unexplained.length,
+          degradedGridPlacements: graph.degradedGridPlacements.length,
+          unreliableAxisPlacements: graph.unreliableAxisPlacements.length,
+          clipOnlyPlacements: graph.clipOnlyPlacements.length,
+        },
       },
     ];
   },

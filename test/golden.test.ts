@@ -16,7 +16,10 @@ const shadowDir = process.env.LDCAD_SHADOW_DIR;
 describe.skipIf(!shadowDir)("golden facts", () => {
   // LibraryIndex.fromDirectory reads the first line of every .dat file in
   // .cache/ldraw (tens of thousands of files); on a cold filesystem cache
-  // that alone can exceed vitest's default 5s test timeout. Load it once
+  // that alone can exceed vitest's default 5s test timeout. (Repeat scans
+  // are now memoised process-wide -- see LibraryIndex.fromDirectory -- so
+  // this hoisting is no longer load-bearing for the SECOND call onwards,
+  // but the first one still has to read the directory.) Load it once
   // and share it (and the ShadowLibrary) across all three tests below --
   // this also means collectSnapMetas's per-(lib,shadow) memo is warm by the
   // second test, so the 3001.dat closure is only walked once for real.

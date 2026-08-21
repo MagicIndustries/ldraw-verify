@@ -68,7 +68,11 @@ function modelOf(placements: Placement[]): ResolvedModel {
 }
 
 function placement(index: number, partId: string, world = IDENTITY4): Placement {
-  return { index, partId, colour: 16, world, submodelPath: [], file: "test.ldr", line: 1 };
+  // `local` (the placement's own line matrix, added for B-05 -- see
+  // Placement.local) is the same as `world` for every fixture here: these
+  // placements are synthesised directly, with no containing submodel to
+  // compose through.
+  return { index, partId, colour: 16, world, local: world, submodelPath: [], file: "test.ldr", line: 1 };
 }
 
 describe("buildGraph", () => {

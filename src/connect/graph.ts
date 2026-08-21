@@ -53,6 +53,77 @@ export interface ConnectionGraph {
   unknownPlacements: number[];
   components: number;
   /**
+   * Component id per placement, indexed by `Placement.index`: two
+   * placements are in the same connected component exactly when their
+   * entries here are equal. The ids are union-find roots, so they are
+   * placement indices, not a dense 0..components-1 range -- callers should
+   * group by value, never assume a numbering.
+   *
+   * `components` alone (a count) is not enough for any rule that has to
+   * say WHICH parts are floating, or reason about whether one particular
+   * component's evidence is trustworthy. B-06 previously worked around
+   * the absence of this by subtracting whole categories of placement from
+   * the count (see its own "ConnectionGraph does not expose per-component
+   * membership" note, now removed), which could only ever produce a
+   * model-wide verdict from model-wide totals.
+   */
+  componentOf: number[];
+  /**
+   * Placements whose connectivity data is known to be incomplete, in any
+   * of the ways this tool can detect:
+   *
+   * - no shadow data reached at all (`unknownPlacements`);
+   * - data reached through an unexpandable `grid=` form
+   *   (`degradedGridPlacements`);
+   * - data composed through a non-orthonormal transform
+   *   (`unreliableAxisPlacements`);
+   * - at least one hotspot of an unpairable kind, i.e. SNAP_CLP, whose
+   *   real physical pairing (a clip gripping a bar) this tool does not
+   *   model at all -- a superset of `clipOnlyPlacements`, which only names
+   *   placements where EVERY hotspot is a clip;
+   * - zero hotspots despite having data: a part with no modelled connector
+   *   may still be attached by a mechanism that isn't modelled, so its
+   *   isolation is not evidence of anything;
+   * - at least one `slide=true` hotspot: a Technic axle or pin mates
+   *   anywhere ALONG its own axis, but `hotspotsCompatible` only pairs
+   *   hotspots whose positions coincide within `POS_TOL`. An axle running
+   *   through a beam's axle hole is a real connection this tool
+   *   structurally cannot see whenever the two connectors' reference
+   *   points sit at different points along the shaft. Found by measurement
+   *   (final fix wave): B-06's only two `fail` verdicts over a 24-model
+   *   OMR sample were both an axle-plus-bush pair -- 4519+32269 in
+   *   41999-1.mpd, 3707+4265b in 5571-1.mpd -- that the graph showed as a
+   *   sealed two-part island because the axle's other, real connection
+   *   into the model's beams was invisible to a coincidence test. Both
+   *   were false positives on a real released set.
+   *
+   * Every one of these can only ever HIDE a connection, never invent one.
+   * That asymmetry is what makes the list usable: a missing edge can only
+   * make the graph look more fragmented than reality. So an empty list
+   * here means the component count is exact, and a non-empty one means a
+   * component count above 1 might be an artifact of the gap.
+   */
+  incompleteDataPlacements: number[];
+  /**
+   * Placements whose connectivity is fully accounted for: they have shadow
+   * data, that data is neither degraded nor axis-unreliable, they carry at
+   * least one hotspot, none of their hotspots is of an unpairable kind,
+   * and EVERY hotspot they carry already participates in at least one
+   * edge. Exactly the complement of `incompleteDataPlacements` plus the
+   * "no free connectors left" condition.
+   *
+   * The point of the last condition: a hidden connection has to land
+   * somewhere. For a connection between this placement and something else
+   * to have been missed, this placement would need a connector that is
+   * currently unpaired (or unknown -- excluded by the conditions above).
+   * If every connector it has is already spoken for, nothing can be
+   * hiding. A component built entirely of such placements therefore cannot
+   * be connected to anything outside itself -- which is what lets B-06
+   * render a `fail` on a model that has data gaps ELSEWHERE, instead of
+   * abstaining on the whole model because its coverage is not 100%.
+   */
+  fullyAccountedPlacements: number[];
+  /**
    * Placement indices (Placement.index, from resolve/ir.ts) whose collected
    * snap metas passed through at least one grid= expansion that
    * expandGridWithStatus (grid.ts) could not fully expand -- i.e. at least
@@ -142,18 +213,60 @@ export interface ConnectionGraph {
 }
 
 /** Stud radius (LDU) a male `SNAP_CYL` hotspot must be near to count as a
- * genuine stud for `singleStudParts`, mirroring `STUD_RADIUS`/`RADIUS_TOL`
+ * genuine stud for `singleStudParts`, mirroring `STUD_RADIUS`/`STUD_RADIUS_TOL`
  * in `src/rules/l5-legality.ts`'s B-01 (same physical constant, same
  * shadow-library rounding tolerance on `secs=` values; duplicated rather
  * than imported to keep this connectivity-layer module independent of the
  * rules layer). */
 const STUD_RADIUS = 6;
 const STUD_RADIUS_TOL = 0.5;
+/**
+ * A System stud's height in LDU (`stud_height` in the corpus's own
+ * `meta.ldu` block), matched against a hotspot's dominant `secs=` segment
+ * depth. With the round-section requirement below, this is what separates
+ * a genuine System stud (`R 6 4`, the profile `p/stud.dat` and `p/stud2.dat`
+ * carry, and 111 further inline occurrences across the real shadow
+ * library) from two other connector families that report the same 6 LDU
+ * radius but have no yaw detent whatsoever:
+ *
+ * - Technic pin/axle ends: `A 6 20` (43093.dat "Technic Axle Pin with
+ *   Friction"), `R 6 16` (6558.dat) -- a shaft in a round hole rotates
+ *   continuously.
+ * - Minifig limb pegs: `R 6 6.25` (3820.dat "Minifig Hand" wrist peg),
+ *   and the shoulder pegs of 3818/3819 -- joints that rotate by design.
+ *
+ * Measured directly against the real OMR corpus, those two families
+ * accounted for the largest share of B-05's remaining false positives:
+ * 43093, 3820, 3818, 3819 and 6558 alone produced 161 of 402 B-05
+ * findings in a 24-model sample, every one of them a part that CANNOT be
+ * "sub-detent" because it has no detent. `slide=true` was the previous
+ * discriminator and catches only some of them -- a friction pin is
+ * explicitly meant NOT to slide freely, so it does not carry the flag.
+ */
+const STUD_HEIGHT = 4;
+const STUD_HEIGHT_TOL = 0.5;
+/** `secs=` shape letter of a round section. A System stud is round; a
+ * Technic axle end is "A" (an axle cross) at the same nominal radius. */
+const ROUND_SECTION = "R";
 
 /** World-space distance (LDU) within which two hotspots are considered coincident. */
 const POS_TOL = 1.0;
-/** Tolerance on 1 - |cos(angle)| between two hotspot axes to count as aligned (parallel or anti-parallel both pass). */
-const AXIS_TOL = 0.1;
+/**
+ * Tolerance on `1 - |cos(angle)|` between two world-space hotspot axis
+ * DIRECTIONS for the pair to count as aligned (parallel and anti-parallel
+ * both pass).
+ *
+ * Named for the quantity it measures, because it is not one: it was
+ * `AXIS_TOL`, a name simultaneously in use in src/rules/l5-legality.ts for
+ * a rotation-MATRIX-ENTRY tolerance at 1e-6, and near-identical to
+ * `AXIS_EPS` in src/rules/l3-grid.ts for the same entry quantity at 1e-3.
+ * Three names, three meanings, no relationship between the values. The two
+ * matrix-entry ones are now one shared constant
+ * (`AXIS_ALIGNED_ENTRY_EPS`); this cosine tolerance is genuinely
+ * different and deliberately stays local to the pairing code that is its
+ * only consumer.
+ */
+const HOTSPOT_AXIS_COS_TOL = 0.1;
 
 /**
  * SNAP_CLP hotspots are never eligible to pair with anything -- see
@@ -175,7 +288,7 @@ function hotspotsCompatible(x: Hotspot, y: Hotspot): boolean {
   const d = Math.hypot(x.pos[0] - y.pos[0], x.pos[1] - y.pos[1], x.pos[2] - y.pos[2]);
   if (d > POS_TOL) return false;
   const dot = x.axis[0] * y.axis[0] + x.axis[1] * y.axis[1] + x.axis[2] * y.axis[2];
-  return 1 - Math.abs(dot) <= AXIS_TOL;
+  return 1 - Math.abs(dot) <= HOTSPOT_AXIS_COS_TOL;
 }
 
 /**
@@ -197,7 +310,12 @@ export function pairHotspots(a: Hotspot[], b: Hotspot[]): Array<[Hotspot, Hotspo
   return out;
 }
 
-function countComponents(n: number, edges: Edge[]): number {
+/**
+ * Union-find over `edges`, returning both the component count and the
+ * per-placement root (see `ConnectionGraph.componentOf`). One pass
+ * produces both; they were never independent facts.
+ */
+function findComponents(n: number, edges: Edge[]): { count: number; componentOf: number[] } {
   const parent = Array.from({ length: n }, (_, i) => i);
   function find(i: number): number {
     const p = parent[i]!;
@@ -212,13 +330,22 @@ function countComponents(n: number, edges: Edge[]): number {
     if (ra !== rb) parent[ra] = rb;
   }
   const roots = new Set<number>();
-  for (let i = 0; i < n; i++) roots.add(find(i));
-  return roots.size;
+  const componentOf = new Array<number>(n);
+  for (let i = 0; i < n; i++) {
+    const root = find(i);
+    componentOf[i] = root;
+    roots.add(root);
+  }
+  return { count: roots.size, componentOf };
 }
 
 interface LocatedHotspot {
   hotspot: Hotspot;
   placementIndex: number;
+  /** Position in `buildGraph`'s flat `all` list, so pairing can record
+   * WHICH hotspots were consumed by an edge (see `pairedHotspots` there
+   * and `ConnectionGraph.fullyAccountedPlacements`). */
+  index: number;
 }
 
 /**
@@ -268,6 +395,18 @@ export async function buildGraph(
   const clipOnlyPlacements: number[] = [];
   const singleStudParts = new Set<number>();
   const all: LocatedHotspot[] = [];
+  /**
+   * Per-placement bookkeeping for `incompleteDataPlacements` /
+   * `fullyAccountedPlacements`, both of which need facts gathered in the
+   * loop below (did data arrive, was it degraded/unreliable, how many
+   * hotspots, any unpairable kind) combined with a fact only known after
+   * pairing (was every hotspot consumed by an edge).
+   */
+  const perPlacement: Array<{
+    index: number;
+    complete: boolean;
+    hotspotIndices: number[];
+  }> = [];
 
   for (const p of model.placements) {
     const { metas, hadData, degradedGridCount } = await collectSnapMetas(p.partId, lib, shadow);
@@ -308,6 +447,13 @@ export async function buildGraph(
         h.kind === "SNAP_CYL" &&
         h.radius !== undefined &&
         Math.abs(h.radius - STUD_RADIUS) <= STUD_RADIUS_TOL &&
+        // A System stud's whole profile, not just its radius: round, 6 LDU
+        // across, 4 LDU tall. See STUD_HEIGHT for the two families of
+        // rotation-free connector this excludes, and why `slide` alone did
+        // not catch them.
+        h.sectionType === ROUND_SECTION &&
+        h.sectionDepth !== undefined &&
+        Math.abs(h.sectionDepth - STUD_HEIGHT) <= STUD_HEIGHT_TOL &&
         !h.slide,
     );
     if (studHotspots.length === 1) singleStudParts.add(p.index);
@@ -315,12 +461,33 @@ export async function buildGraph(
       clipOnlyPlacements.push(p.index);
     }
 
+    const hotspotIndices: number[] = [];
     for (const h of hotspots) {
+      hotspotIndices.push(all.length);
       all.push({
         hotspot: { ...h, pos: applyPoint(p.world, h.pos), axis: applyDir(p.world, h.axis) },
         placementIndex: p.index,
+        index: all.length,
       });
     }
+
+    // "complete" here means only "nothing this tool can detect is missing
+    // from this placement's hotspot set" -- see
+    // `ConnectionGraph.incompleteDataPlacements` for each clause. Whether
+    // those hotspots are all PAIRED is a separate question, answerable
+    // only after the edge pass below.
+    const hasUnpairableKind = hotspots.some((h) => UNPAIRABLE_KINDS.has(h.kind));
+    // A `slide=true` connector mates anywhere along its axis; pairing only
+    // sees coincident positions. See `incompleteDataPlacements`.
+    const hasSlidingConnector = hotspots.some((h) => h.slide);
+    const complete =
+      hadData &&
+      degradedGridCount === 0 &&
+      !metas.some((m) => m.axisUnreliable) &&
+      hotspots.length > 0 &&
+      !hasUnpairableKind &&
+      !hasSlidingConnector;
+    perPlacement.push({ index: p.index, complete, hotspotIndices });
   }
 
   const buckets = new Map<string, LocatedHotspot[]>();
@@ -332,6 +499,10 @@ export async function buildGraph(
   }
 
   const edges: Edge[] = [];
+  /** Indices into `all` of hotspots consumed by at least one edge. A
+   * hotspot absent from this set is a free connector -- which is exactly
+   * where an undetected connection could still be hiding. */
+  const pairedHotspots = new Set<number>();
   for (const loc of all) {
     const cx = cellIndex(loc.hotspot.pos[0]);
     const cy = cellIndex(loc.hotspot.pos[1]);
@@ -360,6 +531,8 @@ export async function buildGraph(
             // so exactly one of these two is female and the other male.
             const femaleHotspot = loc.hotspot.gender === "female" ? loc.hotspot : cand.hotspot;
             const maleHotspot = loc.hotspot.gender === "male" ? loc.hotspot : cand.hotspot;
+            pairedHotspots.add(loc.index);
+            pairedHotspots.add(cand.index);
             edges.push({
               a: loc.placementIndex,
               b: cand.placementIndex,
@@ -378,6 +551,20 @@ export async function buildGraph(
   const total = model.placements.length;
   const withData = total - unknownPlacements.length;
 
+  const incompleteDataPlacements: number[] = [];
+  const fullyAccountedPlacements: number[] = [];
+  for (const entry of perPlacement) {
+    if (!entry.complete) {
+      incompleteDataPlacements.push(entry.index);
+      continue;
+    }
+    if (entry.hotspotIndices.every((i) => pairedHotspots.has(i))) {
+      fullyAccountedPlacements.push(entry.index);
+    }
+  }
+
+  const { count, componentOf } = findComponents(total, edges);
+
   return {
     edges,
     coverage: { withData, total, ratio: total === 0 ? 1 : withData / total },
@@ -385,7 +572,10 @@ export async function buildGraph(
     degradedGridPlacements,
     unreliableAxisPlacements,
     clipOnlyPlacements,
-    components: countComponents(total, edges),
+    components: count,
+    componentOf,
+    incompleteDataPlacements,
+    fullyAccountedPlacements,
     singleStudParts,
   };
 }

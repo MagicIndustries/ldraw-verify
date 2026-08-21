@@ -1,7 +1,7 @@
 import type { Mat3, Vec3 } from "../parse/ast.js";
 import type { LibraryIndex } from "../library/index.js";
 import { tokenizeLine } from "../parse/tokenize.js";
-import { fromLdraw, IDENTITY4, isOrthonormal, multiply, type Mat4 } from "../resolve/matrix.js";
+import { fromLdraw, IDENTITY4, isOrthonormal, multiply, ORTHONORMALITY_EPS, type Mat4 } from "../resolve/matrix.js";
 import { expandGridWithStatus } from "./grid.js";
 import { parseSnapMetas, type ShadowLibrary, type SnapMeta } from "./shadow.js";
 
@@ -58,15 +58,15 @@ interface ClosureResult {
   degradedGridCount: number;
 }
 
-/**
- * Tolerance for the axisUnreliable check. Reuses the same reasoning as
- * `ORTHONORMAL_EPS` in `src/rules/l2-matrix.ts`: real composed transforms
- * carry rounding drift from 6-decimal-place authoring, so this must be
- * loose enough not to flag ordinary rounding noise, while still catching a
- * genuine non-uniform scale (e.g. determinant 20, measured directly against
- * the real shadow library -- see `PlacedMeta.axisUnreliable`).
+/*
+ * The tolerance for the `axisUnreliable` check is `ORTHONORMALITY_EPS`
+ * (src/resolve/matrix.ts) -- the same question E-01 and B-05 ask about a
+ * placement matrix ("is this still a valid rotation, or is it sheared /
+ * non-uniformly scaled"), asked here about a composed part-geometry
+ * transform. It was previously restated locally as `XFORM_EPS = 0.05`,
+ * with a doc comment explaining that it reuses ORTHONORMAL_EPS's
+ * reasoning; one quantity, one constant, imported rather than copied.
  */
-const XFORM_EPS = 0.05;
 
 const MAX_DEPTH = 32;
 const IDENTITY_ROT: Mat3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
@@ -249,7 +249,7 @@ async function walkClosure(partId: string, lib: LibraryIndex, shadow: ShadowLibr
           meta,
           xform,
           ...(inDegradedGrid ? { gridDegraded: true as const } : {}),
-          ...(!isOrthonormal(xform, XFORM_EPS) ? { axisUnreliable: true as const } : {}),
+          ...(!isOrthonormal(xform, ORTHONORMALITY_EPS) ? { axisUnreliable: true as const } : {}),
         });
       }
     }

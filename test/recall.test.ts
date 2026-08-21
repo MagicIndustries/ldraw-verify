@@ -1,5 +1,7 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { verifyFile } from "../src/verify.js";
+import { ALL_RULES, verifyFile } from "../src/verify.js";
+import { loadCorpus } from "../src/rules/registry.js";
 import { ruleOutcome } from "../src/rules/types.js";
 import type { Status, Tier } from "../src/rules/types.js";
 
@@ -102,7 +104,14 @@ const GRAPH_CASES: Case[] = [
   // top-of-brick stacking.
   { rule: "B-01", tier: "HARD", illegal: "b01-stud-in-pinhole.ldr", legal: "b01-stud-on-antistud.ldr" },
   // The same single-stud part (3024.dat) at a 45-degree yaw vs axis-aligned.
-  { rule: "B-05", tier: "HARD", illegal: "b05-fractional-rotation.ldr", legal: "b05-axis-aligned.ldr" },
+  // Tier assertion updated deliberately, HARD -> DISCOURAGED: B-05 was
+  // demoted in the final fix wave on the corpus's own tier definitions
+  // (turning a part on its stud stresses nothing, which is what HARD
+  // means; it is out-of-system, which is what DISCOURAGED means). The
+  // fail/not-fail assertions are unchanged -- the predicate still fires on
+  // the 45-degree fixture and stays silent on its axis-aligned twin. See
+  // B-05's note in rules/lego-build-rules.yaml.
+  { rule: "B-05", tier: "DISCOURAGED", illegal: "b05-fractional-rotation.ldr", legal: "b05-axis-aligned.ldr" },
   // Two 3001.dat bricks placed 1000 LDU apart (no shared hotspot, two
   // components) vs the same two bricks stacked at the real 24 LDU
   // brick-height offset golden.test.ts already established mates into one
@@ -110,6 +119,16 @@ const GRAPH_CASES: Case[] = [
   { rule: "B-06", tier: "HARD", illegal: "b06-disconnected.ldr", legal: "b06-stacked.ldr" },
 ];
 
+/**
+ * The connectivity cases below keep a 30s timeout, but no longer because
+ * of a defect: `verifyFile` used to rebuild the whole ~26k-file
+ * `LibraryIndex` on every call (~2.6s each), which made the E-03 case
+ * above time out reproducibly at vitest's default 5s under contention with
+ * the graph suites. That re-index is now shared process-wide (see
+ * `LibraryIndex.fromDirectory`) and the whole suite runs in ~8s. The
+ * generous timeout stays only as insurance for the FIRST index on a cold
+ * filesystem cache, which is genuinely slow and genuinely unavoidable.
+ */
 async function graphOutcomeOf(path: string, rule: string): Promise<{ status: Status; tier: Tier }> {
   const r = await verifyFile(path, { ...OPTS, shadowDir: shadowDir! });
   const status = ruleOutcome(r.findings, rule);
@@ -157,10 +176,21 @@ describe.todo("L-10 vs G-01 part-class discrimination");
  * the fixture pair will assert once the rule gains a predicate, so the gap
  * is visible in the suite rather than just in the corpus YAML.
  *
- * LEGAL/STYLE-tier corpus entries (G-*, T-*, D-04 is DISCOURAGED but
- * check:none) are excluded here where they report `informational` rather
- * than `unimplemented` -- see Registry.run's tier branch -- except D-04,
- * which is DISCOURAGED with check:none and included below for completeness.
+ * LEGAL/STYLE-tier corpus entries are excluded here, because they report
+ * `informational` rather than `unimplemented` -- see Registry.run's tier
+ * branch. That is exactly TWO of the T-* entries (T-04 MACARONI_LAW is
+ * LEGAL, T-11 SCALE_THRESHOLD is STYLE) and the three G-* ones; an earlier
+ * version of this comment excluded the whole T-* block as "LEGAL/STYLE",
+ * which silently dropped NINE HARD/DISCOURAGED rules from the inventory --
+ * including T-09 SNOT_COMMENSURABILITY, which carries a stated `check:
+ * grid` predicate and is therefore a genuinely implementable rule this
+ * list was hiding. D-04 is DISCOURAGED with check:none and is included.
+ *
+ * The count this block must match: 31 corpus rules are HARD or DISCOURAGED
+ * with no registered predicate; L-10 has its own `describe.todo` marker
+ * above (paired with G-01), so 30 belong here. Both numbers are asserted
+ * mechanically by "the pending inventory is complete" below, so this
+ * comment cannot drift out of date without a test failing.
  */
 describe.todo("unimplemented-rule acceptance tests (pending predicates)", () => {
   // check:none / explicitly "not mechanically checkable" -- see
@@ -224,4 +254,65 @@ describe.todo("unimplemented-rule acceptance tests (pending predicates)", () => 
     "D-02 OUT_OF_SYSTEM_HEIGHT: DISCOURAGED, predicate \"y mod 8 != 0\" -- corpus note: \"Over-fires badly on legitimate SNOT and jumper offsets. Advisory only.\", not implemented on purpose",
   );
   it.todo("E-06 NO_BFC_IN_MODELS: check:transform, \"emit no BFC statements in a model file\" -- illegal: a BFC statement in a model block; legal: none");
+
+  // The T-* technique constants. HARD/DISCOURAGED and unimplemented, so
+  // they belong in this inventory exactly as the B-*/L-*/D-*/E-* entries
+  // above do -- they were missing from it entirely.
+  it.todo(
+    "T-09 SNOT_COMMENSURABILITY: check:grid, predicate \"(n_plate * 8 + n_brick * 24) mod 20 == 0\" -- the one T-* rule with a stated mechanical predicate, and the concrete implementable gap this inventory was hiding. Illegal: a SNOT sandwich whose plate/brick stack does not return to the stud pitch; legal: one that does (e.g. 5 plates == 2 studs, identity I1)",
+  );
+  it.todo(
+    "T-01 MEASURED_SLOPE_ANGLES: HARD, no check kind -- a data table of measured slope angles, not a predicate over a model; would need a per-part angle table to compare a placement against",
+  );
+  it.todo(
+    "T-02 EXACT_ROTATIONS_ARE_RATIONAL: DISCOURAGED, no check kind -- illegal: a Pythagorean-triple rotation emitted as a rounded decimal (cos 36.87 deg); legal: the exact rational 0.8/0.6. Needs a tolerance policy for \"is this decimal trying to be 0.8\" that the corpus does not state",
+  );
+  it.todo(
+    "T-03 ONLY_N4_CLOSES: HARD, no check kind -- illegal: a rosette of N != 4 arms asserted to close on the stud lattice; legal: N == 4. Needs a notion of \"rosette\" the model file does not carry",
+  );
+  it.todo(
+    "T-05 CURVED_SLOPES_ARE_ELLIPTICAL: HARD, no check kind -- a statement about part geometry (semi-axes 56.5685/40.9724), not about a placement; this tool verifies models, not parts",
+  );
+  it.todo(
+    "T-06 NEVER_FORCE_A_BOW: HARD, no check kind -- a bent part has no distinct LDraw encoding (cf. B-02), so a forced bow is not representable in a model file",
+  );
+  it.todo(
+    "T-07 LOAD_BUDGET: DISCOURAGED, no check kind, confidence:low -- needs a per-part mass table and a load path; the corpus itself flags the figures as community measurement, not first-party",
+  );
+  it.todo(
+    "T-08 TILES_ARE_SLIP_PLANES: HARD, no check kind -- \"never place a tile in a load path\" needs a load path, which needs structural analysis (L6, unsolved -- see not_checkable)",
+  );
+  it.todo(
+    "T-10 BRACKET_NOT_COMMENSURATE: DISCOURAGED, no check kind, parts [99207, 99206, 44728, 99781] -- illegal: a bracket child face assumed grid-commensurate (the offset is 12 LDU); legal: geometry that accounts for it. Needs a per-part face-offset table",
+  );
+});
+
+/**
+ * The inventory above is a hand-maintained list, and a hand-maintained
+ * list of "what is missing" is exactly the kind of thing that silently
+ * stops being true. This asserts it against the corpus and the registered
+ * predicates instead: every HARD/DISCOURAGED corpus rule with no predicate
+ * must be named somewhere in this file. It caught nine missing T-* entries
+ * and a stale count when it was written.
+ */
+describe("pending-rule inventory", () => {
+  it("names every unimplemented HARD/DISCOURAGED corpus rule", async () => {
+    const corpus = await loadCorpus(OPTS.corpusPath);
+    const implemented = new Set(ALL_RULES.map((r) => r.id));
+    const pending = [...corpus.values()]
+      .filter((m) => (m.tier === "HARD" || m.tier === "DISCOURAGED") && !implemented.has(m.id))
+      .map((m) => m.id);
+    // Deliberately a plain mention check against this file's own source:
+    // it guards COMPLETENESS (no pending rule silently absent from the
+    // inventory), not the wording of any particular entry. A rule id
+    // mentioned only in passing would satisfy it -- that is a much smaller
+    // problem than a rule missing entirely, which is what actually
+    // happened to the nine T-* entries.
+    const source = await readFile(new URL(import.meta.url), "utf8");
+    const unnamed = pending.filter((id) => !source.includes(id));
+    expect(unnamed).toEqual([]);
+    // 31 pending in the corpus; L-10 is named by its own describe.todo
+    // (paired with G-01), the other 30 by the block above.
+    expect(pending).toHaveLength(31);
+  });
 });

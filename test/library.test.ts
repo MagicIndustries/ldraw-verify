@@ -38,4 +38,38 @@ describe("LibraryIndex", () => {
     expect(lib.has("s\\3001s01.dat")).toBe(lib.get("s\\3001s01.dat") !== undefined);
     expect(lib.get("s\\3001s01.dat")!.id).toBe("3001s01.dat");
   });
+
+  // Indexing the real library reads the first line of ~26k .dat files
+  // (~2.6s). Every verifyFile call used to pay that, so a run over N
+  // models paid it N times -- the thing this tool exists to do -- and the
+  // test suite paid it once per fixture, which is what pushed
+  // recall.test.ts's E-03 case past vitest's default 5s timeout under
+  // contention with the graph suites. The fix is the memo below, not a
+  // longer timeout.
+  it("returns the same shared index for the same directory instead of re-scanning", async () => {
+    const first = await LibraryIndex.fromDirectory("test/fixtures/lib");
+    const second = await LibraryIndex.fromDirectory("test/fixtures/lib");
+    expect(second).toBe(first);
+    // Same directory reached by a different spelling of the same path
+    // resolves to the same entry -- the key is the absolute path.
+    expect(await LibraryIndex.fromDirectory("./test/fixtures/lib")).toBe(first);
+  });
+
+  it("re-scans after clearCache, so a caller that changed a library on disk can force a fresh read", async () => {
+    const first = await LibraryIndex.fromDirectory("test/fixtures/lib");
+    LibraryIndex.clearCache();
+    const afterClear = await LibraryIndex.fromDirectory("test/fixtures/lib");
+    expect(afterClear).not.toBe(first);
+    expect(afterClear.get("3001.dat")!.description).toBe(first.get("3001.dat")!.description);
+  });
+
+  it("does not cache a failed scan as a permanent failure", async () => {
+    // A directory with no parts/p subdirectories yields an empty index
+    // rather than throwing, so the observable contract here is simply that
+    // repeated calls keep working; the eviction it guards (see
+    // `indexCache`) is that a rejected scan must not be replayed forever.
+    const missing = await LibraryIndex.fromDirectory("test/fixtures/does-not-exist");
+    expect(missing.size).toBe(0);
+    expect((await LibraryIndex.fromDirectory("test/fixtures/does-not-exist")).size).toBe(0);
+  });
 });

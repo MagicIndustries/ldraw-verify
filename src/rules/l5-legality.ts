@@ -1,6 +1,13 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { determinant3, isOrthonormal } from "../resolve/matrix.js";
+import {
+  AXIS_ALIGNED_ENTRY_EPS,
+  determinant3,
+  isAxisAligned,
+  isOrthonormal,
+  ORTHONORMALITY_EPS,
+  SINGULAR_DET_EPS,
+} from "../resolve/matrix.js";
 import type { Finding, Rule, RuleContext } from "./types.js";
 
 /**
@@ -64,8 +71,10 @@ function ensureTechnicHolePartsLoaded(): void {
 }
 
 const STUD_RADIUS = 6;
-const RADIUS_TOL = 0.5;
-const AXIS_TOL = 1e-6;
+/** Tolerance on a hotspot's `secs=` radius in LDU -- shadow-library values
+ * are rounded, so a nominal 6 LDU stud can read slightly off. A physical
+ * length, unrelated to any matrix tolerance. */
+const STUD_RADIUS_TOL = 0.5;
 
 /**
  * B-01 / NO_STUD_IN_PINHOLE.
@@ -144,7 +153,7 @@ const noStudInPinhole: Rule = {
 
     const out: Finding[] = [];
     for (const e of graph.edges) {
-      if (e.radius === undefined || Math.abs(e.radius - STUD_RADIUS) > RADIUS_TOL) continue;
+      if (e.radius === undefined || Math.abs(e.radius - STUD_RADIUS) > STUD_RADIUS_TOL) continue;
       // Only a confirmed through-hole (caps=none) is a pinhole a stud can be
       // jammed into -- caps=one (the common case: an ordinary stud or blind
       // anti-stud tube) and missing caps data are both left unflagged. See
@@ -196,13 +205,26 @@ const noStudInPinhole: Rule = {
  * plate/tile resolves to exactly one male hotspot, which is what makes this
  * derivable from connectivity data rather than a hand-maintained part list.
  *
- * A placement's world rotation is axis-aligned (a multiple of 90 degrees on
+ * A placement's rotation is axis-aligned (a multiple of 90 degrees on
  * every axis) exactly when every entry of the 3x3 rotation block is 0 or
  * +-1 -- any yaw/pitch/roll that isn't a multiple of 90 degrees necessarily
  * produces at least one fractional (non-0, non-+-1) entry in an orthonormal
- * rotation matrix. `Placement.world` is a row-major flattened Mat4
+ * rotation matrix. A `Mat4` is row-major and flattened
  * (resolve/matrix.ts), so the rotation block sits at indices
  * 0,1,2 / 4,5,6 / 8,9,10.
+ *
+ * WHICH MATRIX: `Placement.local`, not `Placement.world`. This rule asks
+ * whether a part is square to the assembly it belongs to. Reading the
+ * composed world transform instead asks whether it is square to the WORLD,
+ * which is a strictly stronger claim that every part of every deliberately
+ * tilted sub-assembly violates -- an angled roof section, a train bogie
+ * following curved track, a rotated decorative module, all routine in real
+ * released sets, and all of them internally detented perfectly. Measured
+ * against the real OMR corpus, that was a large share of this rule's
+ * false positives: parts as ordinary as a 1x1 brick were failed for
+ * sitting inside a submodel someone had rotated. `local` is exactly the
+ * matrix the author wrote on the part's own line, which is where a
+ * sub-detent rotation would actually be expressed.
  *
  * That per-entry check is only sound when the rotation block is actually an
  * orthonormal rotation to begin with. A degenerate transform -- e.g. a
@@ -217,7 +239,11 @@ const noStudInPinhole: Rule = {
  * check below; when they say the rotation isn't well-formed, B-05 reports
  * `unknown` rather than `pass` -- it genuinely cannot tell whether the
  * placement is axis-aligned, and `pass` would claim the opposite of what
- * E-01 is independently failing on the same transform.
+ * E-01 is independently failing on the same transform. That gate runs at
+ * `ORTHONORMALITY_EPS`, the same value E-01 uses, so the two rules can no
+ * longer disagree about whether one matrix is well-formed; the per-entry
+ * test itself is the shared `isAxisAligned` at `AXIS_ALIGNED_ENTRY_EPS`,
+ * not a local copy of its body.
  */
 const noFractionalRotation: Rule = {
   id: "B-05",
@@ -241,8 +267,15 @@ const noFractionalRotation: Rule = {
       const p = model.placements[i];
       if (!p) continue;
 
-      const det = determinant3(p.world);
-      if (Math.abs(det) < AXIS_TOL || !isOrthonormal(p.world, AXIS_TOL)) {
+      // Well-formedness first, at E-01's OWN tolerance. This rule used to
+      // ask the same question at 1e-6 -- the value l2-matrix.ts had already
+      // measured as unrealistic for real files -- and then say the matrix
+      // was "singular or sheared -- see E-01" about placements E-01 passes
+      // cleanly. Two rules contradicting each other about one matrix is
+      // worse than either verdict alone, so both now read
+      // `ORTHONORMALITY_EPS` from src/resolve/matrix.ts.
+      const det = determinant3(p.local);
+      if (Math.abs(det) < SINGULAR_DET_EPS || !isOrthonormal(p.local, ORTHONORMALITY_EPS)) {
         out.push({
           ruleId: meta.id,
           tier: meta.tier,
@@ -254,19 +287,25 @@ const noFractionalRotation: Rule = {
         continue;
       }
 
+      // The per-entry 90-degree-multiple test itself is the shared
+      // `isAxisAligned` helper (src/resolve/matrix.ts), not a private
+      // re-implementation of its body -- which is what this rule carried
+      // before, at its own tolerance, and is exactly the drift that
+      // centralising `expandGrid` was meant to prevent. Reached only for a
+      // matrix already confirmed well-formed above, so a `false` here can
+      // only mean "a genuine rotation, but not a multiple of 90 degrees".
+      if (isAxisAligned(p.local, AXIS_ALIGNED_ENTRY_EPS)) continue;
       const rot = [
-        p.world[0]!,
-        p.world[1]!,
-        p.world[2]!,
-        p.world[4]!,
-        p.world[5]!,
-        p.world[6]!,
-        p.world[8]!,
-        p.world[9]!,
-        p.world[10]!,
+        p.local[0]!,
+        p.local[1]!,
+        p.local[2]!,
+        p.local[4]!,
+        p.local[5]!,
+        p.local[6]!,
+        p.local[8]!,
+        p.local[9]!,
+        p.local[10]!,
       ];
-      const axisAligned = rot.every((v) => Math.abs(v) < AXIS_TOL || Math.abs(Math.abs(v) - 1) < AXIS_TOL);
-      if (axisAligned) continue;
       out.push({
         ruleId: meta.id,
         tier: meta.tier,

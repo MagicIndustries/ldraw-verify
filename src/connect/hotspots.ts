@@ -41,6 +41,21 @@ export interface Hotspot {
    * intended, ordinary use of that hole, not the violation the rule names.
    */
   slide?: boolean;
+  /**
+   * Shape letter of the connector's dominant `secs=` segment, upper-cased
+   * ("R", "A", "S", ...), when it carried a profile. See
+   * `dominantSection`: a 6 LDU radius alone does not identify a System
+   * stud, because a Technic axle end ("A") reports the same radius.
+   */
+  sectionType?: string;
+  /**
+   * Depth (LDU) of the connector's dominant `secs=` segment, when it
+   * carried a profile -- i.e. how far the connector actually protrudes or
+   * bores. A System stud is 4 (`stud_height` in the corpus's `meta.ldu`);
+   * a minifig wrist peg at the same radius is 6.25 and a Technic axle end
+   * is 20.
+   */
+  sectionDepth?: number;
 }
 
 /**
@@ -76,42 +91,77 @@ function numbers(s: string | undefined): number[] {
     .filter((n) => Number.isFinite(n));
 }
 
+/** One `secs=` cross-section segment: a type letter, a radius and a depth. */
+interface Section {
+  /** The segment's shape letter, upper-cased: "R" (round), "A" (axle
+   * cross), "S" (square), "L_"/"_L" (chamfered mouths). A System stud is
+   * always "R"; an axle shaft is "A", which is why the letter cannot be
+   * discarded the way `numbers()` used to discard it. */
+  type: string;
+  radius: number;
+  depth: number;
+}
+
 /**
- * The connector's functional bore radius from its `secs=` cross-section
- * profile, if it carried one.
+ * Parse a `secs=` profile into its segments.
  *
- * `secs=` is a sequence of segments, each a type letter (R, S, A, _L, ...;
- * stripped out by `numbers()`, which keeps only the numeric tokens) followed
- * by exactly `(radius, depth)`, e.g. `S 6 4` is one segment, `R 8 2 R 6 16
- * R 8 2` is three. A single-segment profile (an ordinary stud or blind
- * anti-stud tube) has one unambiguous radius. A multi-segment profile is a
- * real Technic through-hole: e.g. `connhole.dat` in the real shadow library
- * encodes `R 8 2 R 6 16 R 8 2` -- a narrower R6 bore for the 16 LDU depth
- * that actually grips a stud, flared to R8 for 2 LDU at each open end
+ * `secs=` is a sequence of segments, each a type letter (R, S, A, _L, ...)
+ * followed by exactly `(radius, depth)`, e.g. `S 6 4` is one segment and
+ * `R 8 2   R 6 16   R 8 2` is three.
+ */
+function parseSections(secsAttr: string | undefined): Section[] {
+  if (!secsAttr) return [];
+  const tokens = secsAttr.trim().split(/\s+/).filter((t) => t.length > 0);
+  const out: Section[] = [];
+  for (let i = 0; i + 2 < tokens.length + 1; i++) {
+    const type = tokens[i];
+    if (type === undefined || Number.isFinite(Number(type))) continue;
+    const radius = Number(tokens[i + 1]);
+    const depth = Number(tokens[i + 2]);
+    if (!Number.isFinite(radius) || !Number.isFinite(depth)) continue;
+    out.push({ type: type.toUpperCase(), radius, depth });
+    i += 2;
+  }
+  return out;
+}
+
+/**
+ * The connector's functionally dominant cross-section: the segment with
+ * the greatest depth.
+ *
+ * A single-segment profile (an ordinary stud or blind anti-stud tube) has
+ * one unambiguous segment. A multi-segment profile is a real Technic
+ * through-hole: e.g. `connhole.dat` in the real shadow library encodes
+ * `R 8 2   R 6 16   R 8 2` -- a narrower R6 bore for the 16 LDU depth that
+ * actually grips a stud, flared to R8 for 2 LDU at each open end
  * (chamfered mouths, not part of what a stud fits into). Taking the LAST
- * segment's radius (the previous logic here) picks an end-chamfer, not the
- * bore -- for `connhole.dat` that reads 8, never matching the 6 LDU stud
+ * segment (the original logic here) picks an end-chamfer, not the bore --
+ * for `connhole.dat` that reads radius 8, never matching the 6 LDU stud
  * radius B-01 (`src/rules/l5-legality.ts`) tests for, so a genuine
  * stud-in-pinhole edge could go undetected depending on which side of the
- * pairing happened to report `radius`. Taking the radius of the
- * greatest-depth segment instead picks the physically dominant section --
- * the actual shaft/bore -- which is correct for both a single-segment
- * profile (trivially, it's the only segment) and a real multi-segment
- * through-hole (the 16-deep bore dominates the two 2-deep chamfers).
+ * pairing happened to report `radius`. The greatest-depth segment is the
+ * physically dominant section -- the actual shaft or bore -- which is
+ * correct for both a single-segment profile (trivially, it is the only
+ * segment) and a real multi-segment through-hole (the 16-deep bore
+ * dominates the two 2-deep chamfers).
+ *
+ * Its TYPE and DEPTH matter as well as its radius, which is why this
+ * returns the whole segment rather than just a number. A System stud is
+ * exactly `R 6 4` (round, 6 LDU radius, 4 LDU tall -- `stud_radius` and
+ * `stud_height` in the corpus's own `meta.ldu` block, and the profile
+ * `p/stud.dat`/`p/stud2.dat` carry). Radius alone does not identify one:
+ * a Technic axle end is `A 6 20` (43093.dat, "Technic Axle Pin with
+ * Friction") and a minifig wrist peg is `R 6 6.25` (3820.dat) -- both
+ * report a 6 LDU radius while being connectors that rotate freely by
+ * design, with no 90-degree detent for B-05 to measure against. See
+ * `ConnectionGraph.singleStudParts` in graph.ts.
  */
-function boreRadius(secsAttr: string | undefined): number | undefined {
-  const nums = numbers(secsAttr);
-  let radius: number | undefined;
-  let maxDepth = -Infinity;
-  for (let i = 0; i + 1 < nums.length; i += 2) {
-    const r = nums[i]!;
-    const depth = nums[i + 1]!;
-    if (depth > maxDepth) {
-      maxDepth = depth;
-      radius = r;
-    }
+function dominantSection(secsAttr: string | undefined): Section | undefined {
+  let best: Section | undefined;
+  for (const section of parseSections(secsAttr)) {
+    if (!best || section.depth > best.depth) best = section;
   }
-  return radius;
+  return best;
 }
 
 function vec3(nums: number[]): Vec3 {
@@ -166,7 +216,8 @@ export function metasToHotspots(placed: PlacedMeta[]): Hotspot[] {
     const localMat = fromLdraw(base, oriMat);
     const worldAxis = applyDir(xform, applyDir(localMat, DOWN));
 
-    const radius = boreRadius(meta.attrs.secs);
+    const section = dominantSection(meta.attrs.secs);
+    const radius = section?.radius;
     const caps = meta.attrs.caps;
     const slide = meta.attrs.slide?.toLowerCase() === "true";
 
@@ -181,6 +232,7 @@ export function metasToHotspots(placed: PlacedMeta[]): Hotspot[] {
         pos: applyPoint(xform, localPos),
         axis: worldAxis,
         ...(radius !== undefined ? { radius } : {}),
+        ...(section !== undefined ? { sectionType: section.type, sectionDepth: section.depth } : {}),
         ...(caps !== undefined ? { caps } : {}),
         ...(slide ? { slide: true as const } : {}),
       });

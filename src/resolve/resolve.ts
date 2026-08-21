@@ -71,6 +71,7 @@ export function resolveModel(doc: LDrawDocument, lib: LibraryIndex): ResolvedMod
           partId: line.name,
           colour: line.colour,
           world: childWorld,
+          local: fromLdraw(line.pos, line.mat),
           submodelPath: path,
           file: block.name,
           line: line.line,
