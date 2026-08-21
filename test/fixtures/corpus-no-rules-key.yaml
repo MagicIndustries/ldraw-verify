@@ -1,0 +1,8 @@
+# Well-formed YAML that parses cleanly but has no top-level "rules:" key —
+# simulates a renamed section, a truncated file, or the wrong file passed by
+# mistake. loadCorpus must fail loudly rather than silently yield an empty
+# corpus.
+meta:
+  version: 1
+not_rules:
+  - id: B-06

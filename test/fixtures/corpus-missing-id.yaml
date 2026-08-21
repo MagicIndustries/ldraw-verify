@@ -1,0 +1,11 @@
+# A rules: list where one entry has no "id" — loadCorpus must fail loudly and
+# name the offending entry's position rather than silently keying it as
+# "undefined".
+rules:
+  - id: B-06
+    name: NO_FLOATING_PARTS
+    tier: HARD
+    statement: "Every element must be connected to the model."
+  - name: MISSING_ID
+    tier: HARD
+    statement: "This entry has no id."

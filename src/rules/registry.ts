@@ -13,9 +13,22 @@ interface CorpusEntry {
 }
 
 export async function loadCorpus(path: string): Promise<Map<string, RuleMeta>> {
-  const doc = parse(await readFile(path, "utf8")) as { rules?: CorpusEntry[] };
+  const parsed: unknown = parse(await readFile(path, "utf8"));
+  const rules = (parsed as { rules?: unknown } | null)?.rules;
+  if (!Array.isArray(rules)) {
+    throw new Error(
+      `corpus file "${path}" has no top-level "rules:" list (expected an array under the ` +
+        `"rules" key; the file parsed but that key is missing, not an array, or the wrong ` +
+        `file was passed). Refusing to load a corpus that would silently report nothing.`,
+    );
+  }
+
   const out = new Map<string, RuleMeta>();
-  for (const e of doc.rules ?? []) {
+  rules.forEach((raw, i) => {
+    const e = raw as CorpusEntry;
+    if (typeof e?.id !== "string" || e.id.trim() === "") {
+      throw new Error(`corpus file "${path}": entry at rules[${i}] is missing a usable "id"`);
+    }
     out.set(e.id, {
       id: e.id,
       name: e.name ?? e.id,
@@ -23,7 +36,7 @@ export async function loadCorpus(path: string): Promise<Map<string, RuleMeta>> {
       statement: e.statement ?? "",
       ...(e.check !== undefined ? { check: e.check } : {}),
     });
-  }
+  });
   return out;
 }
 
@@ -42,6 +55,7 @@ export class Registry {
 
   register(rule: Rule): void {
     if (!this.corpus.has(rule.id)) throw new Error(`rule ${rule.id} is not in the corpus`);
+    if (this.rules.has(rule.id)) throw new Error(`rule ${rule.id} is already registered`);
     this.rules.set(rule.id, rule);
   }
 
@@ -83,7 +97,35 @@ export class Registry {
         continue;
       }
 
-      const produced = rule.run({ model, library, meta });
+      let produced: Finding[];
+      try {
+        produced = rule.run({ model, library, meta });
+        const impostors = produced.filter((f) => f.ruleId !== meta.id);
+        if (impostors.length > 0) {
+          throw new Error(
+            `predicate registered for ${meta.id} produced finding(s) tagged with ruleId ` +
+              `${impostors.map((f) => f.ruleId).join(", ")} instead of ${meta.id}`,
+          );
+        }
+      } catch (err) {
+        // A throwing predicate, or one that forges another rule's ruleId, is a
+        // programming error in that predicate — not proof the model passed, and
+        // not grounds to abort the run for every other rule. Surface it as its
+        // own diagnostic for this rule's slot and keep going. Any findings the
+        // predicate produced are discarded rather than trusted, since a
+        // predicate that misbehaves once (throws, or mislabels output) cannot
+        // be trusted for the rest of its output in the same call either.
+        findings.push({
+          ruleId: meta.id,
+          tier: meta.tier,
+          status: "unknown",
+          message: `predicate for ${meta.id} failed to run cleanly`,
+          locations: [],
+          evidence: { error: err instanceof Error ? err.message : String(err) },
+        });
+        continue;
+      }
+
       findings.push(
         ...(produced.length > 0
           ? produced
