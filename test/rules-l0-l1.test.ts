@@ -1,4 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { LibraryIndex } from "../src/library/index.js";
 import { parseDocument } from "../src/parse/document.js";
@@ -16,6 +18,30 @@ function fire(rule: Rule, text: string) {
 }
 
 const byId = (rules: Rule[], id: string) => rules.find((r) => r.id === id)!;
+
+/**
+ * Recursively collects every `.ts` file under `dir`, skipping any directory
+ * whose absolute path is listed in `excludeDirs`.
+ *
+ * This exists so the parser-error-code coverage test below discovers its own
+ * inputs instead of naming files by hand: a new file added anywhere under
+ * `src/` is picked up automatically, closing the gap where a hardcoded file
+ * list would silently stop covering a third emitter.
+ */
+async function collectTsFiles(dir: string, excludeDirs: readonly string[]): Promise<string[]> {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (excludeDirs.includes(full)) continue;
+      files.push(...(await collectTsFiles(full, excludeDirs)));
+    } else if (entry.isFile() && entry.name.endsWith(".ts")) {
+      files.push(full);
+    }
+  }
+  return files;
+}
 
 describe("L0/L1 rules", () => {
   it("E-03 fails on colour 16 at the top level", () => {
@@ -131,12 +157,30 @@ describe("L0/L1 rules", () => {
   });
 
   it("declares the full set of parser error codes as owned by exactly one rule, with no gaps or overlap", async () => {
-    const [documentSrc, tokenizeSrc] = await Promise.all([
-      readFile(new URL("../src/parse/document.ts", import.meta.url), "utf8"),
-      readFile(new URL("../src/parse/tokenize.ts", import.meta.url), "utf8"),
-    ]);
+    const srcDir = fileURLToPath(new URL("../src", import.meta.url));
+
+    // Coverage boundary: every .ts file under src/ is scraped for error-code
+    // literals EXCEPT src/rules/. That directory is excluded deliberately,
+    // not by omission — rule files legitimately hold the very same
+    // "L<digit>_UPPER_SNAKE" string shape in their own OWNED_CODES constants
+    // (E05_OWNED_CODES, E10_OWNED_CODES, and any future rule's equivalent),
+    // and scraping those would just be reading `owned` back into `emitted`
+    // rather than discovering a real emission site. If a future parsing
+    // concern lands anywhere else under src/ (not just src/parse/), this
+    // scrape still sees it; only src/rules/ is out of scope, and it's out of
+    // scope because it's a consumer of codes, never an emitter of them.
+    const files = await collectTsFiles(srcDir, [path.join(srcDir, "rules")]);
+    // Sanity check that the walk itself found something to scrape.
+    expect(files.length).toBeGreaterThan(0);
+
     const emitted = new Set<string>();
-    for (const src of [documentSrc, tokenizeSrc]) {
+    for (const file of files) {
+      const src = await readFile(file, "utf8");
+      // Only double-quoted "L<digit>_UPPER_SNAKE" literals are matched, e.g.
+      // `"L0_TOKEN_COUNT"`. A code assembled via template literal or string
+      // concatenation would be invisible to this scrape. No such code exists
+      // today; if one is ever added, this gate will not see it, so it must
+      // stay a plain double-quoted literal.
       for (const m of src.matchAll(/"(L\d_[A-Z_]+)"/g)) emitted.add(m[1]!);
     }
     // Sanity check that the scrape itself is working and isn't silently matching nothing.
