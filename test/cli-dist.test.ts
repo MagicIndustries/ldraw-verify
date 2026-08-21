@@ -125,8 +125,8 @@ describe("compiled dist/ build", () => {
   it(
     "rejects unrecognized flag --frobnicate with exit 3",
     async () => {
-      const fixture = join(workDir, "good.ldr");
-      await writeFile(fixture, "0 FILE good.ldr\r\n");
+      const fixture = join(workDir, "good-unknown-flag.ldr");
+      await writeFile(fixture, "0 FILE good-unknown-flag.ldr\r\n");
 
       let stderr = "";
       let exitCode = 0;
@@ -149,10 +149,10 @@ describe("compiled dist/ build", () => {
   );
 
   it(
-    "handles --library as final token (no value following) with sensible behavior",
+    "handles --library as final token (no value following) with exit 3 and names the flag",
     async () => {
-      const fixture = join(workDir, "good.ldr");
-      await writeFile(fixture, "0 FILE good.ldr\r\n");
+      const fixture = join(workDir, "good-final-token.ldr");
+      await writeFile(fixture, "0 FILE good-final-token.ldr\r\n");
 
       let stderr = "";
       let exitCode = 0;
@@ -168,8 +168,8 @@ describe("compiled dist/ build", () => {
         stderr = e.stderr?.toString() ?? "";
       }
 
-      // Either exit 3 (error) or some other handling is acceptable, but must be deliberate
-      expect([0, 1, 3]).toContain(exitCode);
+      expect(exitCode).toBe(3);
+      expect(stderr).toContain("--library");
     },
     30_000,
   );
@@ -197,6 +197,55 @@ describe("compiled dist/ build", () => {
       // This should produce human output to stderr, not JSON
       // Exit code should be 0 (pass) or 1 (fail), not 3 (error)
       expect([0, 1]).toContain(exitCode);
+    },
+    30_000,
+  );
+
+  it(
+    "accepts a value containing dashes (my-library-dir)",
+    async () => {
+      const fixture = join(workDir, "valid-dashes.ldr");
+      await writeFile(fixture, "0 FILE valid-dashes.ldr\r\n1 16 0 0 0 1 0 0 0 1 0 0 0 1 3001.dat\r\n");
+
+      let exitCode = 0;
+      try {
+        execFileSync(
+          process.execPath,
+          [compiledCli, fixture, "--library", "my-library-dir"],
+          { cwd: workDir, encoding: "utf8" },
+        );
+      } catch (err) {
+        const e = err as { status?: number };
+        exitCode = e.status ?? 1;
+      }
+
+      // Should not reject with exit 3; the real library may not exist (exit 3 or other),
+      // but the parser should accept the value. Exit should be 0, 1, or 3 (library not found).
+      expect(exitCode).not.toBe(3);
+    },
+    30_000,
+  );
+
+  it(
+    "accepts a value beginning with a single dash (-foo)",
+    async () => {
+      const fixture = join(workDir, "valid-single-dash.ldr");
+      await writeFile(fixture, "0 FILE valid-single-dash.ldr\r\n1 16 0 0 0 1 0 0 0 1 0 0 0 1 3001.dat\r\n");
+
+      let exitCode = 0;
+      try {
+        execFileSync(
+          process.execPath,
+          [compiledCli, fixture, "--library", "-foo"],
+          { cwd: workDir, encoding: "utf8" },
+        );
+      } catch (err) {
+        const e = err as { status?: number };
+        exitCode = e.status ?? 1;
+      }
+
+      // Should not reject with exit 3; single-dash values are not flags.
+      expect(exitCode).not.toBe(3);
     },
     30_000,
   );

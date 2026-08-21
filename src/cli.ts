@@ -32,10 +32,25 @@ function flag(name: string): string | undefined {
 }
 
 // Validate all flags in argv
-for (const arg of process.argv.slice(2)) {
-  if (arg.startsWith("--")) {
+for (let i = 2; i < process.argv.length; i++) {
+  const arg = process.argv[i];
+  if (arg !== undefined && arg.startsWith("--")) {
     const flagName = arg.slice(2);
     if (!ALL_KNOWN_FLAGS.has(flagName)) {
+      // Check if this unrecognized flag is actually the value of a preceding value-taking flag
+      if (i > 2) {
+        const prevArg = process.argv[i - 1];
+        if (prevArg !== undefined && prevArg.startsWith("--")) {
+          const prevFlagName = prevArg.slice(2);
+          if (KNOWN_VALUE_FLAGS.has(prevFlagName)) {
+            // This unrecognized flag is the value for the previous flag
+            console.error("usage: ldraw-verify <model.ldr|model.mpd> [--library <dir>] [--shadow-dir <dir>] [--rules <path>] [--json]");
+            console.error(`error: flag --${prevFlagName} has value '--${flagName}' which is itself a flag`);
+            process.exit(3);
+          }
+        }
+      }
+      // If we get here, it's truly an unrecognized flag
       console.error("usage: ldraw-verify <model.ldr|model.mpd> [--library <dir>] [--shadow-dir <dir>] [--rules <path>] [--json]");
       console.error(`error: unrecognized flag --${flagName}`);
       process.exit(3);
