@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "vitest run",
-    "build": "tsc && mkdir -p dist/data && cp data/part-classes.json dist/data/part-classes.json"
+    "build": "tsc && mkdir -p dist/data dist/rules && cp data/part-classes.json dist/data/part-classes.json && cp rules/lego-build-rules.yaml dist/rules/lego-build-rules.yaml"
   },
   "repository": {
     "type": "git",
@@ -31,5 +31,8 @@
     "@types/node": "^26.2.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"
+  },
+  "bin": {
+    "ldraw-verify": "dist/src/cli.js"
   }
 }
