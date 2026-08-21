@@ -3,6 +3,8 @@ import { LibraryIndex } from "../src/library/index.js";
 import { parseDocument } from "../src/parse/document.js";
 import { resolveModel } from "../src/resolve/resolve.js";
 import { loadCorpus, Registry } from "../src/rules/registry.js";
+import { ruleOutcome } from "../src/rules/types.js";
+import type { Finding, Status } from "../src/rules/types.js";
 
 const lib = await LibraryIndex.fromDirectory("test/fixtures/lib");
 const model = resolveModel(parseDocument("1 4 0 0 0 1 0 0 0 1 0 0 0 1 3001.dat", "a.ldr"), lib);
@@ -67,7 +69,7 @@ describe("Registry", () => {
 
   it("fails loudly when a corpus file parses but has no rules: key", async () => {
     await expect(loadCorpus("test/fixtures/corpus-no-rules-key.yaml")).rejects.toThrow(
-      /rules/i,
+      /has no top-level "rules:" list/,
     );
   });
 
@@ -78,7 +80,9 @@ describe("Registry", () => {
   });
 
   it("fails loudly on a corpus entry missing an id, naming its position", async () => {
-    await expect(loadCorpus("test/fixtures/corpus-missing-id.yaml")).rejects.toThrow(/1|id/i);
+    await expect(loadCorpus("test/fixtures/corpus-missing-id.yaml")).rejects.toThrow(
+      /entry at rules\[1\] is missing a usable "id"/,
+    );
   });
 
   it("turns a throwing predicate into an unknown finding instead of crashing the run", async () => {
@@ -98,5 +102,85 @@ describe("Registry", () => {
     // The rest of the corpus must still be reported — the run must not abort.
     const l12 = findings.find((x) => x.ruleId === "L-12");
     expect(l12!.status).toBe("unimplemented");
+  });
+
+  it("keeps every per-placement finding in run()'s output when a predicate reports a mix of statuses", async () => {
+    const r = await Registry.create("rules/lego-build-rules.yaml");
+    // A later-task rule that walks per-placement: some placements fail (sheared
+    // matrix), others merely note a mirrored placement as passing. The registry
+    // must not collapse this into one entry — run() stays granular.
+    r.register({
+      id: "B-06",
+      needs: ["placements"],
+      run: () => [
+        {
+          ruleId: "B-06",
+          tier: "HARD",
+          status: "fail",
+          message: "placement 1: sheared matrix",
+          locations: [{ file: "a.ldr", line: 2 }],
+        },
+        {
+          ruleId: "B-06",
+          tier: "HARD",
+          status: "pass",
+          message: "placement 2: mirrored, ok",
+          locations: [{ file: "a.ldr", line: 3 }],
+        },
+        {
+          ruleId: "B-06",
+          tier: "HARD",
+          status: "fail",
+          message: "placement 3: sheared matrix",
+          locations: [{ file: "a.ldr", line: 4 }],
+        },
+      ],
+    });
+
+    const findings = r.run(model, lib);
+    const b06 = findings.filter((x) => x.ruleId === "B-06");
+    expect(b06).toHaveLength(3);
+    expect(b06.map((f) => f.status)).toEqual(["fail", "pass", "fail"]);
+
+    // The single authoritative outcome for consumers is the most severe status
+    // present — fail, since two of the three placements failed.
+    expect(ruleOutcome(findings, "B-06")).toBe("fail");
+  });
+});
+
+describe("ruleOutcome", () => {
+  const finding = (ruleId: string, status: Status): Finding => ({
+    ruleId,
+    tier: "HARD",
+    status,
+    message: "",
+    locations: [],
+  });
+
+  it("returns fail when a rule's findings include both a pass and a fail", () => {
+    const findings = [finding("B-06", "pass"), finding("B-06", "fail")];
+    expect(ruleOutcome(findings, "B-06")).toBe("fail");
+  });
+
+  it.each([
+    ["fail", "unknown"],
+    ["unknown", "unimplemented"],
+    ["unimplemented", "pass"],
+    ["pass", "informational"],
+  ] satisfies [Status, Status][])(
+    "severity ordering: %s outranks %s",
+    (moreSevere, lessSevere) => {
+      // Order in the findings array must not matter — only presence does.
+      const findings = [finding("R", lessSevere), finding("R", moreSevere)];
+      expect(ruleOutcome(findings, "R")).toBe(moreSevere);
+
+      const reversed = [finding("R", moreSevere), finding("R", lessSevere)];
+      expect(ruleOutcome(reversed, "R")).toBe(moreSevere);
+    },
+  );
+
+  it("throws when no finding carries the given rule id, since the registry guarantees every corpus rule produces at least one", () => {
+    const findings = [finding("OTHER-RULE", "pass")];
+    expect(() => ruleOutcome(findings, "MISSING-RULE")).toThrow(/MISSING-RULE/);
   });
 });
