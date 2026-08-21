@@ -11,6 +11,36 @@ export interface Hotspot {
   pos: Vec3;
   axis: Vec3;
   radius?: number;
+  /**
+   * The connector's `caps=` attribute, verbatim (e.g. "one", "none", "two"),
+   * when the underlying SNAP_* meta carried one. This is the shadow
+   * library's own signal for whether a cylindrical connector is a blind
+   * socket (`caps=one`: closed at one end -- an ordinary stud or an
+   * anti-stud tube, both of which use this) or a genuine through-hole
+   * (`caps=none`: open at both ends -- a real Technic pinhole or axle hole,
+   * e.g. `connhole.dat`/`beamhole.dat` in the real shadow library). Radius
+   * alone cannot make that distinction: a Technic-hole-class part like
+   * 3702.dat carries BOTH an ordinary `caps=one` anti-stud tube (for normal
+   * top/bottom stacking) AND a `caps=none` through-hole (the actual
+   * pinhole) at the same nominal 6 LDU radius, so B-01
+   * (`src/rules/l5-legality.ts`) reads `caps` off the *female* side of an
+   * edge to tell which one it actually connects to.
+   */
+  caps?: string;
+  /**
+   * True when the underlying meta carried `[slide=true]`. In the real
+   * shadow library this marks a connector meant to slide/rotate along its
+   * own axis inside whatever it mates with -- every Technic axle and pin
+   * checked carries it (e.g. 3706.dat "Technic Axle 6", 6558.dat "Technic
+   * Pin Long with Friction and Slot"), and so does the through-hole shape
+   * itself (`connhole.dat`). A genuine System stud primitive (`p/stud.dat`,
+   * `p/stud2.dat`, ...) never carries it. B-01
+   * (`src/rules/l5-legality.ts`) uses this to tell a real System stud from
+   * an axle/pin shaft that also happens to report a stud-radius `SNAP_CYL`
+   * male hotspot -- an axle or pin seated in a Technic hole is the
+   * intended, ordinary use of that hole, not the violation the rule names.
+   */
+  slide?: boolean;
 }
 
 /**
@@ -44,6 +74,44 @@ function numbers(s: string | undefined): number[] {
     .split(/\s+/)
     .map(Number)
     .filter((n) => Number.isFinite(n));
+}
+
+/**
+ * The connector's functional bore radius from its `secs=` cross-section
+ * profile, if it carried one.
+ *
+ * `secs=` is a sequence of segments, each a type letter (R, S, A, _L, ...;
+ * stripped out by `numbers()`, which keeps only the numeric tokens) followed
+ * by exactly `(radius, depth)`, e.g. `S 6 4` is one segment, `R 8 2 R 6 16
+ * R 8 2` is three. A single-segment profile (an ordinary stud or blind
+ * anti-stud tube) has one unambiguous radius. A multi-segment profile is a
+ * real Technic through-hole: e.g. `connhole.dat` in the real shadow library
+ * encodes `R 8 2 R 6 16 R 8 2` -- a narrower R6 bore for the 16 LDU depth
+ * that actually grips a stud, flared to R8 for 2 LDU at each open end
+ * (chamfered mouths, not part of what a stud fits into). Taking the LAST
+ * segment's radius (the previous logic here) picks an end-chamfer, not the
+ * bore -- for `connhole.dat` that reads 8, never matching the 6 LDU stud
+ * radius B-01 (`src/rules/l5-legality.ts`) tests for, so a genuine
+ * stud-in-pinhole edge could go undetected depending on which side of the
+ * pairing happened to report `radius`. Taking the radius of the
+ * greatest-depth segment instead picks the physically dominant section --
+ * the actual shaft/bore -- which is correct for both a single-segment
+ * profile (trivially, it's the only segment) and a real multi-segment
+ * through-hole (the 16-deep bore dominates the two 2-deep chamfers).
+ */
+function boreRadius(secsAttr: string | undefined): number | undefined {
+  const nums = numbers(secsAttr);
+  let radius: number | undefined;
+  let maxDepth = -Infinity;
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const r = nums[i]!;
+    const depth = nums[i + 1]!;
+    if (depth > maxDepth) {
+      maxDepth = depth;
+      radius = r;
+    }
+  }
+  return radius;
 }
 
 function vec3(nums: number[]): Vec3 {
@@ -98,8 +166,9 @@ export function metasToHotspots(placed: PlacedMeta[]): Hotspot[] {
     const localMat = fromLdraw(base, oriMat);
     const worldAxis = applyDir(xform, applyDir(localMat, DOWN));
 
-    const secs = numbers(meta.attrs.secs);
-    const radius = secs.length >= 2 ? secs[secs.length - 2] : undefined;
+    const radius = boreRadius(meta.attrs.secs);
+    const caps = meta.attrs.caps;
+    const slide = meta.attrs.slide?.toLowerCase() === "true";
 
     for (const offset of expandGrid(meta.attrs)) {
       // offset is in the meta's own (pos, ori) frame -- applyPoint rotates
@@ -112,6 +181,8 @@ export function metasToHotspots(placed: PlacedMeta[]): Hotspot[] {
         pos: applyPoint(xform, localPos),
         axis: worldAxis,
         ...(radius !== undefined ? { radius } : {}),
+        ...(caps !== undefined ? { caps } : {}),
+        ...(slide ? { slide: true as const } : {}),
       });
     }
   }

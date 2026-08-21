@@ -19,16 +19,16 @@ function modelWith(graph: ConnectionGraph, n: number) {
 }
 
 // Brief's original graph() helper only knew about edges/coverage/
-// unknownPlacements/components. clipOnlyPlacements and
-// degradedGridPlacements have since landed on ConnectionGraph (task 10 --
-// see connect/graph.ts) and are required fields, so this local fixture
-// builder grew two optional parameters for them, defaulting to empty so
-// every test from the brief is unaffected unless it opts in.
+// unknownPlacements/components. clipOnlyPlacements, degradedGridPlacements
+// (task 10) and unreliableAxisPlacements (task 14) have since landed on
+// ConnectionGraph (see connect/graph.ts) and are required fields, so this
+// local fixture builder grew optional parameters for them, defaulting to
+// empty so every test from the brief is unaffected unless it opts in.
 const graph = (
   components: number,
   total: number,
   withData = total,
-  extra: { clipOnlyPlacements?: number[]; degradedGridPlacements?: number[] } = {},
+  extra: { clipOnlyPlacements?: number[]; degradedGridPlacements?: number[]; unreliableAxisPlacements?: number[] } = {},
 ): ConnectionGraph => ({
   edges: [],
   coverage: { withData, total, ratio: total === 0 ? 1 : withData / total },
@@ -36,6 +36,7 @@ const graph = (
   components,
   clipOnlyPlacements: extra.clipOnlyPlacements ?? [],
   degradedGridPlacements: extra.degradedGridPlacements ?? [],
+  unreliableAxisPlacements: extra.unreliableAxisPlacements ?? [],
 });
 
 describe("B-06 no floating parts", () => {
@@ -113,6 +114,23 @@ describe("B-06 no floating parts", () => {
     // Single component overall -- nothing to soften or fail regardless of
     // the degraded-grid placement's presence.
     const g = graph(1, 2, 2, { degradedGridPlacements: [1] });
+    const f = rule.run({ model: modelWith(g, 2), library: lib, meta });
+    expect(f).toHaveLength(0);
+  });
+
+  // --- unreliable-axis policy ---------------------------------------------
+  // Same policy as degraded-grid: a non-orthonormal composed transform can
+  // only make hotspotsCompatible's axis check reject a real pairing, never
+  // fabricate one, so it can only ever soften a `fail` to `unknown`, never
+  // manufacture one or touch a `pass`. See closure.ts's PlacedMeta.axisUnreliable.
+  it("downgrades an otherwise-failing component count to unknown when an unreliable-axis placement is present", () => {
+    const g = graph(2, 2, 2, { unreliableAxisPlacements: [1] });
+    const f = rule.run({ model: modelWith(g, 2), library: lib, meta });
+    expect(f[0]!.status).toBe("unknown");
+  });
+
+  it("does not let an unreliable-axis signal turn a genuine pass into anything other than pass", () => {
+    const g = graph(1, 2, 2, { unreliableAxisPlacements: [1] });
     const f = rule.run({ model: modelWith(g, 2), library: lib, meta });
     expect(f).toHaveLength(0);
   });

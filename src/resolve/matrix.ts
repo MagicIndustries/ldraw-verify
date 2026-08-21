@@ -75,3 +75,30 @@ export function isOrthonormal(m: Mat4, eps = 1e-6): boolean {
   }
   return true;
 }
+
+/**
+ * True when `m`'s rotation is both well-formed (see `isOrthonormal`) and a
+ * multiple of 90 degrees on every axis -- every entry of the 3x3 rotation
+ * block is 0 or +-1, which is only possible for a 0/90/180/270-degree
+ * rotation on an orthonormal matrix (see `src/rules/l5-legality.ts`'s B-05
+ * doc comment for the proof sketch).
+ *
+ * This is `world`-space alignment, i.e. it is composed through every
+ * ancestor submodel's own transform, not just the placement's own local
+ * line. That distinction matters for a grid check like E-02
+ * (`src/rules/l3-grid.ts`): "this part's Y sits on a multiple of 4 LDU" is
+ * only a meaningful claim in an axis-aligned frame. The moment any ancestor
+ * submodel is itself rotated off a 90-degree multiple -- an angled roof
+ * section, a train bogie following curved track, a tilted decorative
+ * assembly, all routine in real released sets -- every descendant's
+ * composed world Y stops being a clean multiple of anything, even though
+ * the part sits exactly on-grid in its own submodel's local frame. Callers
+ * that only make sense in an axis-aligned frame should treat `false` here
+ * as "not decidable", not as "off-grid".
+ */
+export function isAxisAligned(m: Mat4, eps = 1e-6): boolean {
+  if (Math.abs(determinant3(m)) < eps) return false;
+  if (!isOrthonormal(m, eps)) return false;
+  const rotation = [m[0]!, m[1]!, m[2]!, m[4]!, m[5]!, m[6]!, m[8]!, m[9]!, m[10]!];
+  return rotation.every((v) => Math.abs(v) < eps || Math.abs(Math.abs(v) - 1) < eps);
+}

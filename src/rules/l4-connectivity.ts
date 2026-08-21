@@ -43,6 +43,21 @@ import type { Finding, Rule, RuleContext } from "./types.js";
  *   model, this tool cannot rule out "the missing grid cells would have
  *   connected it" as the explanation, so the verdict is downgraded from
  *   `fail` to `unknown` rather than asserted.
+ *
+ * - `unreliableAxisPlacements`: placements that collected at least one
+ *   hotspot through a non-orthonormal composed transform (see
+ *   `PlacedMeta.axisUnreliable` in closure.ts) -- most commonly a Technic
+ *   pin/axle/bush connector reached via a shared connector-hole primitive
+ *   reused at a different size deep in a part's own geometry. Confirmed
+ *   directly against the real shadow library (Task 14 report):
+ *   3713.dat ("Technic Bush with Two Flanges") has no shadow file of its
+ *   own, and the only meta reachable through its geometry closure carries a
+ *   determinant-20 composed transform, corrupting its hotspot's axis.
+ *   `hotspotsCompatible`'s axis check (connect/graph.ts) can then reject a
+ *   pairing that should have matched -- exactly the same "can only
+ *   under-report, never over-report" direction as a degraded grid, so it is
+ *   handled identically: only ever grounds to soften a `fail` to `unknown`,
+ *   never to manufacture one or touch a `pass`.
  */
 const noFloatingParts: Rule = {
   id: "B-06",
@@ -104,11 +119,30 @@ const noFloatingParts: Rule = {
     if (adjustedComponents <= 1) return [];
 
     // Past this point the model looks like it has a genuinely floating
-    // part -- unless there's a degraded-grid placement anywhere that
-    // could be the (or an) actual explanation. Under-reporting can only
-    // make components look more fragmented, never less, so it is only
-    // ever grounds to soften a `fail`, never to manufacture or hide one.
-    if (graph.degradedGridPlacements.length > 0) {
+    // part -- unless there's a degraded-grid or unreliable-axis placement
+    // anywhere that could be the (or an) actual explanation. Both signals
+    // can only make components look more fragmented, never less, so they
+    // are only ever grounds to soften a `fail`, never to manufacture or
+    // hide one -- see this rule's doc comment for why each one only ever
+    // under-reports.
+    if (graph.degradedGridPlacements.length > 0 || graph.unreliableAxisPlacements.length > 0) {
+      const reasons: string[] = [];
+      if (graph.degradedGridPlacements.length > 0) {
+        reasons.push(
+          `${graph.degradedGridPlacements.length} placement(s) have under-reported connectivity from an unexpandable grid= form`,
+        );
+      }
+      if (graph.unreliableAxisPlacements.length > 0) {
+        reasons.push(
+          `${graph.unreliableAxisPlacements.length} placement(s) have connectivity computed through a non-orthonormal transform`,
+        );
+      }
+      const locations = [...graph.degradedGridPlacements, ...graph.unreliableAxisPlacements]
+        .slice(0, 10)
+        .map((i) => {
+          const p = model.placements[i]!;
+          return { file: p.file, line: p.line, partId: p.partId };
+        });
       return [
         {
           ruleId: meta.id,
@@ -116,14 +150,15 @@ const noFloatingParts: Rule = {
           status: "unknown",
           message:
             `model has ${graph.components} components (${adjustedComponents} unexplained by clip-only ` +
-            `connectors); ${graph.degradedGridPlacements.length} placement(s) have under-reported ` +
-            `connectivity from an unexpandable grid= form, so a genuinely floating part cannot be ` +
-            `distinguished from a missed grid connection`,
-          locations: graph.degradedGridPlacements.slice(0, 10).map((i) => {
-            const p = model.placements[i]!;
-            return { file: p.file, line: p.line, partId: p.partId };
-          }),
-          evidence: { components: graph.components, adjustedComponents, degradedGridPlacements: graph.degradedGridPlacements },
+            `connectors); ${reasons.join(" and ")}, so a genuinely floating part cannot be distinguished ` +
+            `from a missed connection`,
+          locations,
+          evidence: {
+            components: graph.components,
+            adjustedComponents,
+            degradedGridPlacements: graph.degradedGridPlacements,
+            unreliableAxisPlacements: graph.unreliableAxisPlacements,
+          },
         },
       ];
     }

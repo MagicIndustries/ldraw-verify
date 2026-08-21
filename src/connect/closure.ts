@@ -1,7 +1,7 @@
 import type { Mat3, Vec3 } from "../parse/ast.js";
 import type { LibraryIndex } from "../library/index.js";
 import { tokenizeLine } from "../parse/tokenize.js";
-import { fromLdraw, IDENTITY4, multiply, type Mat4 } from "../resolve/matrix.js";
+import { fromLdraw, IDENTITY4, isOrthonormal, multiply, type Mat4 } from "../resolve/matrix.js";
 import { expandGridWithStatus } from "./grid.js";
 import { parseSnapMetas, type ShadowLibrary, type SnapMeta } from "./shadow.js";
 
@@ -19,6 +19,29 @@ export interface PlacedMeta {
    * placement chain never passed through a degraded grid expansion.
    */
   gridDegraded?: boolean;
+  /**
+   * True when `xform` -- the transform this meta's `pos`/`ori`/hotspot axis
+   * are composed through -- is not orthonormal at the point this meta was
+   * collected. `xform` accumulates through two paths: SNAP_INCL's own
+   * `pos`/`ori` (always a plain shadow-format rotation, orthonormal by
+   * construction) and, separately, every real subfile line walked while
+   * descending through a part's *own* geometry (`walk`'s `partText` loop
+   * below). The second path can carry genuine non-uniform scale: LDraw part
+   * authoring routinely reuses one shared connector-hole/bush-hole
+   * primitive at different depths via a scaled subfile reference, which is
+   * completely legitimate for *rendering* geometry but corrupts a hotspot's
+   * `axis` direction once composed through it (`applyDir` in
+   * `hotspots.ts`'s `metasToHotspots` is a plain linear map, not corrected
+   * for non-uniform scale). A corrupted axis can only make
+   * `hotspotsCompatible`'s axis check (graph.ts) *reject* a real pairing,
+   * never fabricate one -- confirmed directly against the real shadow
+   * library: 3713.dat ("Technic Bush with Two Flanges") has no shadow file
+   * of its own, and its only reachable connecting meta arrives through a
+   * subfile chain whose accumulated `xform` has `determinant3 == 20` and
+   * fails `isOrthonormal` outright. See `ConnectionGraph.unreliableAxisPlacements`
+   * in `graph.ts` for how this feeds B-06.
+   */
+  axisUnreliable?: boolean;
 }
 
 interface ClosureResult {
@@ -34,6 +57,16 @@ interface ClosureResult {
    */
   degradedGridCount: number;
 }
+
+/**
+ * Tolerance for the axisUnreliable check. Reuses the same reasoning as
+ * `ORTHONORMAL_EPS` in `src/rules/l2-matrix.ts`: real composed transforms
+ * carry rounding drift from 6-decimal-place authoring, so this must be
+ * loose enough not to flag ordinary rounding noise, while still catching a
+ * genuine non-uniform scale (e.g. determinant 20, measured directly against
+ * the real shadow library -- see `PlacedMeta.axisUnreliable`).
+ */
+const XFORM_EPS = 0.05;
 
 const MAX_DEPTH = 32;
 const IDENTITY_ROT: Mat3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
@@ -145,6 +178,7 @@ export async function collectSnapMetas(
       meta: m.meta,
       xform: m.xform,
       ...(m.gridDegraded ? { gridDegraded: true as const } : {}),
+      ...(m.axisUnreliable ? { axisUnreliable: true as const } : {}),
     })),
     hadData: result.hadData,
     degradedGridCount: result.degradedGridCount,
@@ -211,7 +245,12 @@ async function walkClosure(partId: string, lib: LibraryIndex, shadow: ShadowLibr
           }
           continue;
         }
-        metas.push({ meta, xform, ...(inDegradedGrid ? { gridDegraded: true as const } : {}) });
+        metas.push({
+          meta,
+          xform,
+          ...(inDegradedGrid ? { gridDegraded: true as const } : {}),
+          ...(!isOrthonormal(xform, XFORM_EPS) ? { axisUnreliable: true as const } : {}),
+        });
       }
     }
 

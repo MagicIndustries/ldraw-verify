@@ -62,7 +62,25 @@ rules:
     predicate: "count(connected_components) == 1"
     confidence: high
     priority: 1
-    note: "Trivial over an MPD and the single most common naive-generator failure."
+    note: >
+      Trivial over an MPD and the single most common naive-generator failure.
+      TASK 14: kept HARD, predicate unchanged; connectivity-layer completeness fixed
+      instead (src/connect/closure.ts, src/connect/graph.ts). Root cause of the corpus
+      over-firing was (c) incomplete connectivity data, not a wrong predicate: Technic
+      pin/axle/bush connectors (e.g. 3713.dat "Technic Bush with Two Flanges", which has
+      no shadow file of its own) are reached through a real-geometry subfile chain that
+      can carry genuine non-uniform scale from a shared connector-hole primitive reused
+      at a different size -- confirmed directly against the shadow library (determinant3
+      == 20 on the composed transform). That corrupts the hotspot's axis
+      (metasToHotspots' applyDir is a plain linear map, not corrected for non-uniform
+      scale), which can only make hotspotsCompatible's axis check reject a pairing that
+      should have matched, never fabricate one -- so it can only under-report
+      components, never over-report. Such placements are now tagged (`axisUnreliable`)
+      and feed a new `unreliableAxisPlacements` list, handled exactly like the existing
+      `degradedGridPlacements`: downgrades an otherwise-failing component count to
+      `unknown`, never touches a pass, never manufactures a fail. Pre-fix measured rate:
+      100% of applicable real models (30-model sample, finding-count framing); see the
+      Task 14 report for the post-fix per-model rate.
 
   - id: B-01
     name: NO_STUD_IN_PINHOLE
@@ -75,7 +93,31 @@ rules:
     confidence: high
     priority: 2
     supersedes: D-01
-    note: "Flat ban. Stricter than the 2006 deck, which called this legal-but-not-recommended."
+    note: >
+      Flat ban. Stricter than the 2006 deck, which called this legal-but-not-recommended.
+      TASK 14: kept HARD (per the coordinator's directive, this is a hard physical
+      constraint, not a housekeeping nit), predicate corrected, not weakened. Root cause
+      was (an implementation defect analogous to (b)): every real Technic-hole-class
+      part in `parts:` above carries BOTH a genuine through-hole (shadow library:
+      `SNAP_INCL [ref=connhole.dat]`, `caps=none`) AND an entirely separate, ordinary
+      blind anti-stud tube for normal top/bottom System stacking (`SNAP_CYL [caps=one]
+      [secs=S 6 4]`), at the *same* nominal 6 LDU radius -- matching on radius and
+      part-class alone (the original predicate's literal reading) therefore flagged
+      perfectly ordinary "plate stacked on a Technic brick" connections as a
+      stud-in-pinhole violation. Fix reads the shadow library's own `caps=` signal
+      (open-both-ends vs blind) off the female side of the edge specifically
+      (Edge.femaleCaps, src/connect/graph.ts) and only flags a confirmed `caps=none`
+      through-hole. A second, related bug in radius extraction (src/connect/hotspots.ts)
+      was fixed alongside it: a multi-segment `secs=` profile's radius was read from the
+      wrong segment (the last chamfer, not the actual bore), which could hide a genuine
+      through-hole from the radius filter entirely depending on hotspot scan order. A
+      third fix excludes a `[slide=true]` male connector (Edge.maleSlide): every real
+      Technic axle/pin checked also reports a stud-radius male SNAP_CYL hotspot, but
+      seating an axle/pin in a Technic hole is that hole's intended, ordinary use, not
+      a System stud violation -- `slide=true` is what every axle/pin carries and no
+      genuine System stud primitive does. Pre-fix measured rate: 89.18% of applicable
+      real models (30-model sample, finding-count framing); see the Task 14 report for
+      the post-fix per-model rate.
 
   - id: B-05
     name: NO_FRACTIONAL_ROTATION
@@ -86,6 +128,26 @@ rules:
     predicate: "for single-stud parts, yaw mod 90 == 0"
     confidence: high
     priority: 3
+    note: >
+      TASK 14: kept HARD, predicate corrected to match its own stated scope, not
+      weakened. Root cause (an implementation defect analogous to (b)): "single-stud
+      part" was computed as "exactly one male hotspot of any kind", which over-counted
+      hinge fingers (SNAP_FGR) and ball joints (SNAP_SPH) -- connectors that rotate by
+      design, with no 90-degree detent at all -- and even non-stud round SNAP_CYL
+      features at the wrong radius (e.g. 2412b.dat, "Tile 1 x 2 Grille with Groove",
+      whose sole male hotspot is a 4 LDU decorative peg, not a 6 LDU stud). Fix scopes
+      the single-stud count to kind == SNAP_CYL at (approximately) the 6 LDU stud
+      radius (src/connect/graph.ts), matching the rule's own "single-stud parts"
+      wording; the same [slide=true] axle/pin exclusion added for B-01 was also applied
+      here (a round shaft in a round hole has no yaw detent to be "sub-detent" relative
+      to). A residual over-firing rate remains after both fixes, concentrated in
+      rotationally-symmetric single-stud parts (round 1x1 plates, minifig heads, cones)
+      and hinge-mounted accessories placed at an intentional yaw -- see the Task 14
+      report's self-review for why this was not resolved further in this pass; not
+      demoted, because genuine off-grid rectangular-tile/plate violations remain a real,
+      distinguishable signal this rule should keep catching. Pre-fix measured rate:
+      91.18% of applicable real models (30-model sample, finding-count framing); see the
+      Task 14 report for the post-fix per-model rate.
 
   - id: B-03
     name: SNOT_LOGO_CLEARANCE
@@ -339,16 +401,54 @@ rules:
     check: transform
     predicate: "det(R) == +1 AND R * transpose(R) == I"
     priority: 1
-    note: "three.js and glm are column-major. Symmetric parts look fine when transposed — test with a slope."
+    note: >
+      three.js and glm are column-major. Symmetric parts look fine when transposed —
+      test with a slope. TASK 14: kept HARD, predicate corrected, not weakened --
+      genuine transposition/shear still fails at any of the tolerances below.
+      Corpus-wide measurement found three distinct, unrelated sources of
+      non-orthonormality in real OMR files, none of them a real defect: (1) primitives
+      (p/, p/48/, p/8/) and subparts (parts/s/) referenced directly from a custom/
+      embedded "0 FILE" block -- these are building blocks for one custom part's
+      geometry, never a model placement, and legitimately carry wild scale (measured up
+      to 0.8 row-norm deviation on a real subpart reference); both directory classes
+      are now excluded from ResolvedModel.placements entirely (src/library/index.ts,
+      src/resolve/resolve.ts). (2) ordinary 6-decimal-place authoring plus curved-track
+      small-angle approximation (e.g. 10001-1.mpd's curved 9V track, 74747.dat) compounds
+      up to ~0.04 row-norm deviation, two orders of magnitude below genuine
+      shear/transposition (~0.1+); ORTHONORMAL_EPS raised 1e-3 -> 0.05 to clear it with
+      headroom (src/rules/l2-matrix.ts). (3) LDCad's own auto-generated flexible-path
+      fallback content (`0 !LDCAD GENERATED`, real files: Power Functions cables, Technic
+      chains/treads) deliberately shears/scales each segment to approximate a curve a
+      physically flexible element is allowed to take (determinant up to ~42 measured);
+      such placements now report `unknown`, not `fail` (Placement.generatedFlexPath,
+      src/resolve/{ir,resolve}.ts). Pre-fix measured rate: 97.71% of applicable real
+      models (30-model sample, finding-count framing); see the Task 14 report for the
+      post-fix per-model rate.
 
   - id: E-02
     name: Y_IS_UP_NEGATIVE
-    tier: HARD
+    tier: DISCOURAGED
     source_tier: P1
     statement: "-Y is up. Stack upward by decreasing Y. Part origin sits on the TOP face."
     check: grid
     predicate: "all y <= 0 AND y mod 4 == 0"
-    note: "A brick on the ground has origin_y = -24. Do not add stud height when stacking."
+    note: >
+      A brick on the ground has origin_y = -24. Do not add stud height when stacking.
+      TASK 14: demoted HARD -> DISCOURAGED. "y <= 0 throughout" and "y mod 4 == 0" are
+      conventions for a single assembly built up from one shared ground plane at y=0,
+      not properties every valid placement in a real model has. Measured directly
+      against the real OMR corpus: genuine released sets place parts at y > 0 (e.g. a
+      part hanging below a hinge point) and at y values that are not multiples of 4 (a
+      part's own LDraw-authored origin is not always at a grid-multiple reference point
+      -- see E-09's own measurement that only 24% of parts have the "standard studs-up"
+      origin signature). Both failure modes persisted even after the tool's own
+      axis-alignment gate (isAxisAligned in resolve/matrix.ts) already excludes
+      placements reached through a rotated ancestor submodel, where the claim is not
+      even well-formed. Pre-fix measured rate: 100% of applicable real models (30-model
+      sample, finding-count framing) / see the Task 14 report for the corrected
+      per-model rate. Kept as DISCOURAGED (not deleted): still useful signal that a
+      placement's height sits outside the ordinary ground-referenced stacking
+      convention, worth surfacing, never worth blocking on.
 
   - id: E-03
     name: MODEL_COLOUR_CONCRETE
@@ -385,12 +485,25 @@ rules:
 
   - id: E-07
     name: NO_DEPRECATED_PARTS
-    tier: HARD
+    tier: DISCOURAGED
     source_tier: P1
     statement: "Do not reference ~Moved to aliases or ~-prefixed hidden parts."
     check: part_identity
     predicate: "reject any part whose description line starts with '0 ~'"
-    note: "~16% of the parts directory is aliases or hidden parts you should not reference."
+    note: >
+      ~16% of the parts directory is aliases or hidden parts you should not reference.
+      TASK 14: demoted HARD -> DISCOURAGED. Referencing a "~Moved to" alias or a bare
+      ~-hidden part is a library-cataloguing nit, not a build-legality defect: the
+      referenced .dat still parses to the exact same physical geometry either way (a
+      rename does not change what gets built), and real released sets -- authored over
+      the part library's multi-decade history -- reference pre-rename/superseded part
+      numbers routinely, simply because that was the current number when the file was
+      made. Measured directly against the real OMR corpus: essentially every real,
+      legally-built set references at least one such part somewhere (pre-fix rate ~100%
+      of applicable real models, finding-count framing over a 30-model sample; see the
+      Task 14 report for the per-model figure). Kept as DISCOURAGED, not deleted: a
+      generating agent should still prefer the current canonical id -- it is real
+      housekeeping hygiene -- just not a gate on whether the build is legal.
 
   - id: E-08
     name: PART_NUMBERS_RESOLVED

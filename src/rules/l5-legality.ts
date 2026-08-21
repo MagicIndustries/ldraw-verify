@@ -73,12 +73,49 @@ const AXIS_TOL = 1e-6;
  * Stricter than the 2006 LEGO presentation (which called a single stud in a
  * Technic hole legal-but-inadvisable): the current BrickLink Designer
  * Program bans it outright. A System stud entering a Technic pinhole is
- * identified here purely from connectivity data -- an edge whose hotspot
- * radius matches the 6 LDU stud radius (within tolerance for the rounding
+ * identified here from connectivity data -- an edge whose hotspot radius
+ * matches the 6 LDU stud radius (within tolerance for the rounding
  * shadow-library `secs=` values carry), landing on a placement in the
  * Technic-hole part class (`data/part-classes.json`, seeded from the
- * corpus's B-01/L-01/L-02/L-03 part lists). No geometry beyond what
- * `buildGraph` already computed is needed.
+ * corpus's B-01/L-01/L-02/L-03 part lists).
+ *
+ * Radius and part-class alone are not enough, though: every real
+ * Technic-hole-class part (3700, 3701, 3702, 3894, 6541, 32000 -- all the
+ * "Technic Brick ... with Holes" family) carries BOTH a genuine Technic
+ * through-hole (in the real shadow library, `SNAP_INCL [ref=connhole.dat]`,
+ * `caps=none`) AND an entirely separate, ordinary blind anti-stud tube for
+ * normal top/bottom System stacking (`SNAP_CYL [gender=F] [caps=one] [secs=S
+ * 6 4]`), at the *same* nominal 6 LDU radius -- that's why a Technic hole
+ * can physically accept a stud at all. Matching on radius and part-class
+ * alone therefore flags perfectly ordinary "plate stacked on top of a
+ * Technic brick" connections as if they were a stud jammed into the side
+ * pinhole: measured against the real OMR corpus, this made B-01 fail on
+ * ~89% of real, legally-built released sets (see the Task 14 report), all
+ * traced to this exact ordinary-stacking edge.
+ *
+ * `caps=` is the shadow library's own signal for the distinction: `none`
+ * means open at both ends (a genuine through-hole a stud can be jammed
+ * into), `one` means closed at one end (a blind socket -- stud or
+ * anti-stud tube, either way not a pinhole). `Edge.femaleCaps` carries that
+ * value read specifically off the female side of the pairing (see its doc
+ * comment in connect/graph.ts for why radius-style either-side fallback
+ * would hide it), so this rule only flags an edge whose female side is
+ * confirmed `caps=none` -- an edge with no caps data at all is left
+ * unflagged rather than guessed at, per this tool's "never fabricate a
+ * verdict it can't support" principle.
+ *
+ * `caps=none` alone still over-reaches, though: every Technic axle and pin
+ * checked in the real shadow library ALSO reports a stud-radius male
+ * `SNAP_CYL` hotspot (e.g. 3706.dat "Technic Axle 6", 6558.dat "Technic Pin
+ * Long with Friction and Slot") -- and inserting an axle or pin into a
+ * Technic through-hole is the intended, ordinary use of that hole, not the
+ * "System stud in a pinhole" violation this rule names. What every such
+ * axle/pin carries, and no genuine System stud primitive
+ * (`p/stud.dat`/`p/stud2.dat`/...) does, is `[slide=true]` -- LDCad's own
+ * marker for "this connector slides/rotates along its axis inside its
+ * mate". `Edge.maleSlide` carries that off the male side specifically
+ * (mirroring `femaleCaps`'s female-side read), and this rule excludes any
+ * edge where it's set.
  */
 const noStudInPinhole: Rule = {
   id: "B-01",
@@ -108,6 +145,15 @@ const noStudInPinhole: Rule = {
     const out: Finding[] = [];
     for (const e of graph.edges) {
       if (e.radius === undefined || Math.abs(e.radius - STUD_RADIUS) > RADIUS_TOL) continue;
+      // Only a confirmed through-hole (caps=none) is a pinhole a stud can be
+      // jammed into -- caps=one (the common case: an ordinary stud or blind
+      // anti-stud tube) and missing caps data are both left unflagged. See
+      // this rule's doc comment.
+      if (e.femaleCaps !== "none") continue;
+      // A sliding male connector is an axle/pin, not a System stud -- seating
+      // one in a Technic hole is the ordinary, intended use of that hole.
+      // See this rule's doc comment.
+      if (e.maleSlide) continue;
       const pa = model.placements[e.a];
       const pb = model.placements[e.b];
       if (!pa || !pb) continue;

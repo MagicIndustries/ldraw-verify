@@ -32,11 +32,24 @@ const modelColour: Rule = {
     // level, where there is no caller. Inside a submodel block it is
     // legitimate and common, so this half of the check is scoped to
     // blocks[0] (the main model) only.
+    //
+    // Within that scope, a further distinction matters: a top-level line
+    // can reference either an actual PART or another "0 FILE" block in this
+    // same MPD (a submodel). Colour 16 on a reference to a *submodel* is not
+    // the same claim as colour 16 on a reference to a *part* -- the
+    // submodel's own lines carry their own real colours, so the outer
+    // reference's colour is inert, and real OMR sets built from named
+    // submodels (train cars, sticker sheets, minifigs as their own blocks)
+    // do this routinely. Only a direct part reference at the top level has
+    // no caller to inherit from. See the Task 14 report for the measured
+    // false-positive rate this fixes.
+    const submodelNames = new Set(model.document.blocks.map((b) => b.name.toLowerCase()));
     const main = model.document.blocks[0];
     if (main) {
       for (const line of main.lines) {
         if (line.kind !== "subfile") continue;
         if (line.colour !== COLOUR_MAIN) continue;
+        if (submodelNames.has(line.name.toLowerCase())) continue;
         out.push({
           ruleId: meta.id,
           tier: meta.tier,

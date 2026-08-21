@@ -19,6 +19,32 @@ export interface Edge {
    * read this rather than re-deriving it from part geometry.
    */
   radius?: number;
+  /**
+   * The `caps=` value (e.g. "one", "none") off the *female* hotspot of this
+   * pairing, when it carried one -- see `Hotspot.caps` in hotspots.ts for
+   * what the value means. `hotspotsCompatible` guarantees exactly one side
+   * of a pair is female (`x.gender === y.gender` is rejected), so this is
+   * never ambiguous the way `radius` is: unlike radius, both a stud and an
+   * ordinary blind socket use `caps=one`, so falling back between sides the
+   * way `radius` does would hide a genuine through-hole's `caps=none`
+   * behind whichever side happened to carry a value. Reading specifically
+   * the female side is what lets B-01 tell an ordinary anti-stud tube
+   * (blind, `caps=one`) apart from a real Technic through-hole (open both
+   * ends, `caps=none`) at the same nominal radius -- see B-01's doc comment
+   * in `src/rules/l5-legality.ts`.
+   */
+  femaleCaps?: string;
+  /**
+   * True when the *male* hotspot of this pairing carried `[slide=true]` --
+   * see `Hotspot.slide` in hotspots.ts. Read from the male side
+   * specifically, mirroring `femaleCaps`'s female-side read: a Technic
+   * axle/pin (always `slide=true`) can report a stud-radius male `SNAP_CYL`
+   * hotspot just like a genuine System stud does, and inserting an
+   * axle/pin into a Technic hole is the intended, ordinary use of that
+   * hole -- not the "System stud in a pinhole" violation B-01 names. See
+   * its doc comment in `src/rules/l5-legality.ts`.
+   */
+  maleSlide?: boolean;
 }
 
 export interface ConnectionGraph {
@@ -47,6 +73,26 @@ export interface ConnectionGraph {
    */
   degradedGridPlacements: number[];
   /**
+   * Placement indices (Placement.index) whose collected snap metas included
+   * at least one PlacedMeta with `axisUnreliable: true` (see that field's
+   * doc comment in closure.ts) -- i.e. at least one hotspot reaching this
+   * placement was computed through a non-orthonormal composed transform,
+   * most commonly a shared connector-hole primitive reused at a different
+   * size via a scaled subfile reference deep in a part's own geometry
+   * (confirmed directly against the real shadow library: 3713.dat,
+   * "Technic Bush with Two Flanges", has no shadow file of its own and its
+   * only reachable connecting meta arrives this way, with `determinant3 ==
+   * 20`).
+   *
+   * Handled exactly like `degradedGridPlacements`, for the same reason: a
+   * corrupted axis can only make `hotspotsCompatible`'s axis check reject a
+   * pairing that should have matched, never fabricate one that shouldn't
+   * have -- under-reporting can only make the graph look more fragmented
+   * than reality, never less. So this can only ever cast doubt on a `fail`
+   * verdict (B-06), never manufacture or hide one.
+   */
+  unreliableAxisPlacements: number[];
+  /**
    * Placement indices whose *only* connecting hotspots are SNAP_CLP.
    *
    * SNAP_CLP (clip) metas genuinely carry no gender attribute in the real
@@ -71,14 +117,38 @@ export interface ConnectionGraph {
   clipOnlyPlacements: number[];
   /**
    * Placement indices (Placement.index) whose hotspots include exactly one
-   * male hotspot. A grid-expanded 1x1 plate/tile is the canonical example:
-   * grid expansion (grid.ts) resolves it to precisely one male hotspot, so
+   * genuine System stud -- a `SNAP_CYL` hotspot at (approximately) the 6 LDU
+   * stud radius. A grid-expanded 1x1 plate/tile is the canonical example:
+   * grid expansion (grid.ts) resolves it to precisely one such hotspot, so
    * this set is derivable from connectivity data rather than needing a
    * hand-maintained "which parts are single-stud" list. B-05 (no fractional
    * rotation of single-stud parts) is the first consumer.
+   *
+   * Scoped to `SNAP_CYL` at stud radius specifically, not "any male
+   * hotspot": `SNAP_FGR` (hinge fingers), `SNAP_SPH` (ball joints) and
+   * `SNAP_GEN` (generic connectors, e.g. a wheel's rim-to-hub mount) are
+   * male connectors too but rotate by design -- a hinge finger and a ball
+   * joint have no 90-degree detent at all, so counting them here would
+   * subject them to B-05's axis-alignment check for a constraint they were
+   * never under. Even within `SNAP_CYL`, radius still matters: a part can
+   * carry a single *non-stud* round male feature (e.g. `2412b.dat`, "Tile
+   * 1 x 2 Grille with Groove", whose sole male `SNAP_CYL` is a 4 LDU
+   * decorative peg, not a 6 LDU stud) that would otherwise be
+   * misclassified as a single-stud part. See the Task 14 report for the
+   * corpus evidence (both cases measured directly against the real shadow
+   * library).
    */
   singleStudParts?: Set<number>;
 }
+
+/** Stud radius (LDU) a male `SNAP_CYL` hotspot must be near to count as a
+ * genuine stud for `singleStudParts`, mirroring `STUD_RADIUS`/`RADIUS_TOL`
+ * in `src/rules/l5-legality.ts`'s B-01 (same physical constant, same
+ * shadow-library rounding tolerance on `secs=` values; duplicated rather
+ * than imported to keep this connectivity-layer module independent of the
+ * rules layer). */
+const STUD_RADIUS = 6;
+const STUD_RADIUS_TOL = 0.5;
 
 /** World-space distance (LDU) within which two hotspots are considered coincident. */
 const POS_TOL = 1.0;
@@ -194,6 +264,7 @@ export async function buildGraph(
 ): Promise<ConnectionGraph> {
   const unknownPlacements: number[] = [];
   const degradedGridPlacements: number[] = [];
+  const unreliableAxisPlacements: number[] = [];
   const clipOnlyPlacements: number[] = [];
   const singleStudParts = new Set<number>();
   const all: LocatedHotspot[] = [];
@@ -202,6 +273,7 @@ export async function buildGraph(
     const { metas, hadData, degradedGridCount } = await collectSnapMetas(p.partId, lib, shadow);
     if (!hadData) unknownPlacements.push(p.index);
     if (degradedGridCount > 0) degradedGridPlacements.push(p.index);
+    if (metas.some((m) => m.axisUnreliable)) unreliableAxisPlacements.push(p.index);
 
     const hotspots = metasToHotspots(metas);
     // A part whose sole connecting hotspot is a SNAP_CLP is not a stud at
@@ -214,8 +286,31 @@ export async function buildGraph(
     // legitimately rotates freely and isn't a stud. `UNPAIRABLE_KINDS`
     // already marks SNAP_CLP as never eligible to pair (hotspotsCompatible,
     // above); the single-stud count excludes it for the same reason.
-    const pairableMaleHotspots = hotspots.filter((h) => h.gender === "male" && !UNPAIRABLE_KINDS.has(h.kind));
-    if (pairableMaleHotspots.length === 1) singleStudParts.add(p.index);
+    //
+    // Scoped further to kind === "SNAP_CYL" at stud radius -- see
+    // ConnectionGraph.singleStudParts for why "any male hotspot" over-counts
+    // hinge fingers, ball joints, generic connectors, and even non-stud
+    // round SNAP_CYL features (decorative pegs, wheel-rim mounts). Kind
+    // "SNAP_CYL" already excludes SNAP_CLP (UNPAIRABLE_KINDS' only member),
+    // so no separate check against that set is needed here.
+    //
+    // Also excludes `slide` -- the same signal B-01 uses (see its doc
+    // comment in l5-legality.ts): every Technic axle/pin checked in the real
+    // shadow library reports a stud-radius male SNAP_CYL hotspot too (e.g.
+    // 3706.dat "Technic Axle 6"), but a round shaft seated in a round
+    // Technic hole has no yaw detent at all -- there is nothing for it to be
+    // "sub-detent" relative to. Confirmed against the real OMR corpus: axles
+    // (3705/3706/4519/32062/32073/...) accounted for a large share of B-05's
+    // remaining false positives after the kind/radius fix alone.
+    const studHotspots = hotspots.filter(
+      (h) =>
+        h.gender === "male" &&
+        h.kind === "SNAP_CYL" &&
+        h.radius !== undefined &&
+        Math.abs(h.radius - STUD_RADIUS) <= STUD_RADIUS_TOL &&
+        !h.slide,
+    );
+    if (studHotspots.length === 1) singleStudParts.add(p.index);
     if (hotspots.length > 0 && hotspots.every((h) => UNPAIRABLE_KINDS.has(h.kind))) {
       clipOnlyPlacements.push(p.index);
     }
@@ -259,12 +354,20 @@ export async function buildGraph(
             // both the male and female hotspot of a pairing), so fall back
             // to the candidate's when the scanning hotspot didn't have one.
             const radius = loc.hotspot.radius ?? cand.hotspot.radius;
+            // femaleCaps/maleSlide are each read from one specific side,
+            // never falling back to the other -- see their doc comments on
+            // Edge. hotspotsCompatible already rejected same-gender pairs,
+            // so exactly one of these two is female and the other male.
+            const femaleHotspot = loc.hotspot.gender === "female" ? loc.hotspot : cand.hotspot;
+            const maleHotspot = loc.hotspot.gender === "male" ? loc.hotspot : cand.hotspot;
             edges.push({
               a: loc.placementIndex,
               b: cand.placementIndex,
               kind: loc.hotspot.kind,
               at: loc.hotspot.pos,
               ...(radius !== undefined ? { radius } : {}),
+              ...(femaleHotspot.caps !== undefined ? { femaleCaps: femaleHotspot.caps } : {}),
+              ...(maleHotspot.slide ? { maleSlide: true as const } : {}),
             });
           }
         }
@@ -280,6 +383,7 @@ export async function buildGraph(
     coverage: { withData, total, ratio: total === 0 ? 1 : withData / total },
     unknownPlacements,
     degradedGridPlacements,
+    unreliableAxisPlacements,
     clipOnlyPlacements,
     components: countComponents(total, edges),
     singleStudParts,

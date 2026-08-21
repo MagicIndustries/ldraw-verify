@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "vitest run",
-    "build": "tsc && mkdir -p dist/data dist/rules && cp data/part-classes.json dist/data/part-classes.json && cp rules/lego-build-rules.yaml dist/rules/lego-build-rules.yaml"
+    "build": "tsc && mkdir -p dist/data dist/rules && cp data/part-classes.json dist/data/part-classes.json && cp rules/lego-build-rules.yaml dist/rules/lego-build-rules.yaml",
+    "precision": "npm run build && node dist/scripts/omr-precision.js"
   },
   "repository": {
     "type": "git",
