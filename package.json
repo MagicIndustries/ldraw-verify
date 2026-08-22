@@ -2,7 +2,7 @@
   "name": "ldraw-verify",
   "version": "1.0.0",
   "description": "Verifies LDraw/MPD model files against the LEGO build-rules corpus.",
-  "main": "index.js",
+  "main": "dist/src/index.js",
   "scripts": {
     "test": "vitest run",
     "build": "tsc && mkdir -p dist/data dist/rules && cp data/part-classes.json dist/data/part-classes.json && cp data/part-properties.json dist/data/part-properties.json && cp rules/lego-build-rules.yaml dist/rules/lego-build-rules.yaml",
@@ -36,5 +36,17 @@
   },
   "bin": {
     "ldraw-verify": "dist/src/cli.js"
-  }
+  },
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "data",
+    "rules"
+  ]
 }
