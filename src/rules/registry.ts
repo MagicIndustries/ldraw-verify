@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { parse } from "yaml";
 import type { LibraryIndex } from "../library/index.js";
 import type { ResolvedModel } from "../resolve/ir.js";
-import type { Finding, Need, Rule, RuleMeta, Tier } from "./types.js";
+import type { Finding, Need, Rule, RuleDomain, RuleKind, RuleMeta, Tier } from "./types.js";
 
 interface CorpusEntry {
   id: string;
@@ -10,6 +10,8 @@ interface CorpusEntry {
   tier?: string;
   statement?: string;
   check?: string;
+  kind?: string;
+  domain?: string;
 }
 
 export async function loadCorpus(path: string): Promise<Map<string, RuleMeta>> {
@@ -32,9 +34,13 @@ export async function loadCorpus(path: string): Promise<Map<string, RuleMeta>> {
     out.set(e.id, {
       id: e.id,
       name: e.name ?? e.id,
+      // Permissions and references carry no tier by design; STYLE is the
+      // non-gating stand-in so a Finding always has one to report.
       tier: (e.tier ?? "STYLE") as Tier,
       statement: e.statement ?? "",
       ...(e.check !== undefined ? { check: e.check } : {}),
+      ...(e.kind !== undefined ? { kind: e.kind as RuleKind } : {}),
+      ...(e.domain !== undefined ? { domain: e.domain as RuleDomain } : {}),
     });
   });
   return out;
@@ -74,7 +80,12 @@ export class Registry {
     const findings: Finding[] = [];
 
     for (const meta of this.corpus.values()) {
-      if (meta.tier === "LEGAL" || meta.tier === "STYLE") {
+      // Non-gating entries. A permission or a reference cannot be violated,
+      // so it is reported for the record and never evaluated -- previously
+      // inferred from `tier === "LEGAL"`, which conflated a permission with a
+      // severity. STYLE remains a real tier on a real constraint (L-12,
+      // T-11): a rule that can be violated but never gates.
+      if (meta.kind === "permission" || meta.kind === "reference" || meta.tier === "STYLE" || meta.tier === "LEGAL") {
         findings.push({ ruleId: meta.id, tier: meta.tier, status: "informational", message: meta.statement, locations: [] });
         continue;
       }

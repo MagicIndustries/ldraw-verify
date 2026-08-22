@@ -18,7 +18,10 @@ describe("Registry", () => {
 
   it("reports a HARD corpus rule with no predicate as unimplemented", async () => {
     const r = await Registry.create("rules/lego-build-rules.yaml");
-    const f = r.run(model, lib).find((x) => x.ruleId === "L-12");
+    // L-05 rather than L-12: L-12 was dropped to STYLE by the 2026-08-22 tier
+    // audit (its statement names no condition), and STYLE is reported
+    // informational, so it no longer exercises the unimplemented path.
+    const f = r.run(model, lib).find((x) => x.ruleId === "L-05");
     expect(f!.status).toBe("unimplemented");
   });
 
@@ -100,8 +103,8 @@ describe("Registry", () => {
     expect(b06!.message + JSON.stringify(b06!.evidence ?? {})).toMatch(/predicate exploded/);
 
     // The rest of the corpus must still be reported — the run must not abort.
-    const l12 = findings.find((x) => x.ruleId === "L-12");
-    expect(l12!.status).toBe("unimplemented");
+    const other = findings.find((x) => x.ruleId === "L-05");
+    expect(other!.status).toBe("unimplemented");
   });
 
   it("keeps every per-placement finding in run()'s output when a predicate reports a mix of statuses", async () => {

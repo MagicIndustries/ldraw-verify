@@ -242,7 +242,6 @@ describe.todo("unimplemented-rule acceptance tests (pending predicates)", () => 
   it.todo(
     "L-08 PC_ON_PC_SLIDING: check:part_identity, requires a material table (part x colour) this tool does not have",
   );
-  it.todo("L-12 TECHNIC_HALFBEAM_WITH_SYSTEM_PLATE: check:none, \"unimplementable as published\" per its own corpus note");
   it.todo("D-04 BUILD_COMPLEXITY: check:none, no stated mechanical threshold");
   it.todo(
     "E-09 ORIGIN_NOT_COMPUTED: check:none by design -- no part-origin table is shipped; see verify.ts self-review deviation #1",
@@ -297,9 +296,6 @@ describe.todo("unimplemented-rule acceptance tests (pending predicates)", () => 
     "T-03 ONLY_N4_CLOSES: HARD, no check kind -- illegal: a rosette of N != 4 arms asserted to close on the stud lattice; legal: N == 4. Needs a notion of \"rosette\" the model file does not carry",
   );
   it.todo(
-    "T-05 CURVED_SLOPES_ARE_ELLIPTICAL: HARD, no check kind -- a statement about part geometry (semi-axes 56.5685/40.9724), not about a placement; this tool verifies models, not parts",
-  );
-  it.todo(
     "T-06 NEVER_FORCE_A_BOW: HARD, no check kind -- a bent part has no distinct LDraw encoding (cf. B-02), so a forced bow is not representable in a model file",
   );
   it.todo(
@@ -337,15 +333,17 @@ describe("pending-rule inventory", () => {
     const source = await readFile(new URL(import.meta.url), "utf8");
     const unnamed = pending.filter((id) => !source.includes(id));
     expect(unnamed).toEqual([]);
-    // 29 pending in the corpus; L-10 is named by its own describe.todo
-    // (paired with G-01), the other 28 by the block above. Was 31 before
-    // L-03 was removed as a misreading of its source, and 30 before B-07
-    // gained a predicate -- see rules/lego-build-rules.yaml.
+    // 27 pending in the corpus; L-10 is named by its own describe.todo
+    // (paired with G-01), the other 26 by the block above. Was 31 before L-03
+    // was removed as a misreading, 30 before B-07 gained a predicate, and 29
+    // before the 2026-08-22 tier audit took L-12 to STYLE (its statement names
+    // no condition) and T-05 to kind:reference (a fact about part geometry
+    // that nothing can violate). Neither is pending work any more.
     //
     // B-07 only implements the seam-repetition half of its statement; the
     // "min overlap 2 studs" clause is unchecked. It is off this list because
     // the rule now renders a verdict, not because the statement is fully
     // covered -- see the rule's doc comment in src/rules/l3-grid.ts.
-    expect(pending).toHaveLength(29);
+    expect(pending).toHaveLength(27);
   });
 });

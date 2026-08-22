@@ -28,6 +28,30 @@ meta:
     I5: "5 * brick == 6 * stud (120 LDU)   # the 6:5 rule"
     I7: "clear gap between adjacent studs == 8 LDU == bar diameter"
 
+# What sort of entry this is. Added 2026-08-22 by the tier audit, because
+# `tier` was carrying three incompatible things at once: a severity, a
+# permission (LEGAL), and, in two cases, a bare geometric fact. Only a
+# `constraint` can be violated, so only a constraint has a tier -- the other
+# two kinds omit the field entirely rather than parking a meaningless value in
+# it.
+kinds:
+  constraint: >
+    Something a model can violate. Carries a `tier` saying how bad that is.
+    41 of 46 rules.
+  permission: >
+    A technique that looks illegal, or sits beside something illegal, recorded
+    so a generator does not "fix" it and a reviewer does not flag it. Never
+    violated, never fires; usually paired with the constraint it is confused
+    with -- G-01 is the legal twin of L-10, differing only in tile vs plate.
+    No tier: a permission has no severity.
+  reference: >
+    A fact about the parts, which nothing can violate. T-04 and T-05 are
+    geometric identities of a part family, the same sort of thing as the
+    `identities:` block above, and they were tiered LEGAL and HARD
+    respectively -- two identical kinds of statement, two different severities,
+    which is what exposed the field as overloaded. Reference data a generator
+    reads; no tier.
+
 # What KIND of claim a rule makes. Added 2026-08-22, because the tier
 # definitions below were written for physical rules and were being applied to
 # file rules by analogy: "stresses or damages an element" is not a test a
@@ -66,8 +90,9 @@ tiers:
     case, usually paired with the HARD rule it is confused with (G-01 with
     L-10, G-02, G-03, T-04). Kept in this field for now because the tooling
     reads one tier column, but it belongs on a different axis and mixing it
-    with HARD/DISCOURAGED/STYLE is a category error -- see the tier audit in
-    docs/rules-testing/TIER-AUDIT.md.
+    with HARD/DISCOURAGED/STYLE was a category error. RETIRED 2026-08-22: the
+    rules that used it now carry `kind: permission` and no tier. Kept in this
+    block only to explain historical data.
 
 source_tiers:
   P1: "LEGO Group / BrickLink first-party document"
@@ -92,6 +117,7 @@ rules:
   - id: B-06
     name: NO_FLOATING_PARTS
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "Every element must be connected to the model."
@@ -179,6 +205,7 @@ rules:
   - id: B-01
     name: NO_STUD_IN_PINHOLE
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "A System stud may not be inserted into a Technic pinhole."
@@ -217,6 +244,7 @@ rules:
   - id: B-05
     name: NO_FRACTIONAL_ROTATION
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "Parts may not be positioned at sub-detent rotations."
@@ -337,6 +365,7 @@ rules:
   - id: B-03
     name: SNOT_LOGO_CLEARANCE
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "Nothing may be placed against the face a stud points into; the moulded wordmark adds ~0.14 mm to every stud."
@@ -355,6 +384,7 @@ rules:
   - id: B-04
     name: MUST_BE_SEPARABLE
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "No construction that cannot be taken apart again."
@@ -365,6 +395,7 @@ rules:
   - id: B-02
     name: NO_BENDING
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "Only parts designed to flex may be bent."
@@ -375,6 +406,7 @@ rules:
   - id: B-07
     name: BDP_STABILITY_OVERLAP
     tier: DISCOURAGED
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "Bricks and plates should overlap wherever possible; vertical seams should not repeat between adjacent courses."
@@ -414,6 +446,7 @@ rules:
   - id: B-08
     name: TECHNIC_SMOOTHNESS
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "Working mechanisms must not stress elements."
@@ -425,6 +458,7 @@ rules:
   - id: B-09
     name: SUBMISSION_LIMITS
     tier: HARD
+    kind: constraint
     domain: submission
     source_tier: P1
     statement: "Part count, palette and part-economy limits apply to submissions."
@@ -438,6 +472,7 @@ rules:
   - id: L-09
     name: RECEIVER_SMALLER_THAN_CONNECTOR
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "The receiving element must not be smaller than what is pushed into it."
@@ -455,6 +490,7 @@ rules:
   - id: L-02
     name: TECHNIC_HOLE_BRIDGED
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "A System stud in a Technic hole may not be bridged."
@@ -466,6 +502,7 @@ rules:
   - id: L-10
     name: PLATE_BETWEEN_STUDS
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "A plate may not be wedged edge-on between two studs."
@@ -482,6 +519,7 @@ rules:
     # Implemented and reverted: the predicate is sound but nothing in the
     # available data says WHICH hinges have 22.5 degree detents.
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "Click hinges may only be set at multiples of 22.5 degrees."
@@ -493,6 +531,7 @@ rules:
   - id: L-04
     name: PIN_NOT_IN_CLICK
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "Every Technic pin must be seated in its detent."
@@ -504,6 +543,7 @@ rules:
   - id: L-01
     name: SYSTEM_TECHNIC_HEIGHT_MISMATCH
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "System side-studs and Technic holes are not co-planar."
@@ -516,6 +556,7 @@ rules:
   - id: L-06
     name: CONE_ON_PIN_NO_STOP
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "No press-fitting an element that has no travel stop."
@@ -527,6 +568,7 @@ rules:
   - id: L-05
     name: PIN_INTO_UNDERSIZED_BORE
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "Pins must not be forced into non-Technic bores."
@@ -538,6 +580,7 @@ rules:
   - id: L-08
     name: PC_ON_PC_SLIDING
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "Polycarbonate must not slide against polycarbonate."
@@ -548,22 +591,32 @@ rules:
 
   - id: L-12
     name: TECHNIC_HALFBEAM_WITH_SYSTEM_PLATE
-    tier: HARD
+    tier: STYLE
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "Technic half-beams with System plates."
     check: none
     parts: [32063]
     confidence: low
-    note: "Unimplementable as published — the source does not state the condition precisely enough."
+    note: >
+      Unimplementable as published: the source does not state the condition
+      precisely enough. DROPPED HARD -> STYLE 2026-08-22 by the tier audit --
+      the statement is not a sentence ("Technic half-beams with System
+      plates.") and names no condition, so nothing can be checked against it
+      and nothing can be said to violate it. Kept rather than deleted because
+      the source does gesture at a real interaction and losing the pointer
+      would lose that; NOT removed the way L-03 was, because L-03 was wrong
+      whereas this is merely unstated. Restore a severity only once someone can
+      write the condition down.
 
 # --------------------------------------------------------------------------
 # Discouraged — explicitly NOT hard-illegal. Do not promote these.
 # --------------------------------------------------------------------------
-
   - id: D-01
     name: STUD_IN_TECHNIC_HOLE_UNBRIDGED
     tier: DISCOURAGED
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "A single unbridged stud in a Technic hole is technically legal but not recommended."
@@ -575,6 +628,7 @@ rules:
   - id: D-02
     name: OUT_OF_SYSTEM_HEIGHT
     tier: DISCOURAGED
+    kind: constraint
     domain: physical
     source_tier: P1
     statement: "Hinge-plate height mismatch puts subsequent geometry out of system."
@@ -586,6 +640,7 @@ rules:
   - id: D-04
     name: BUILD_COMPLEXITY
     tier: DISCOURAGED
+    kind: constraint
     domain: submission
     source_tier: P1
     statement: "Excessive build complexity."
@@ -599,7 +654,7 @@ rules:
 
   - id: G-01
     name: TILE_BETWEEN_STUDS
-    tier: LEGAL
+    kind: permission
     domain: physical
     source_tier: P1
     statement: "A tile wedged between two studs is LEGAL. Contrast L-10, which is the same geometry with a plate."
@@ -608,7 +663,7 @@ rules:
 
   - id: G-02
     name: CLIP_ON_TILE
-    tier: LEGAL
+    kind: permission
     domain: physical
     source_tier: P1
     statement: "Clipping onto a tile is legal on modern clip mouldings."
@@ -617,7 +672,7 @@ rules:
 
   - id: G-03
     name: FIVE_PLATES_EQUALS_TWO_STUDS
-    tier: LEGAL
+    kind: permission
     domain: physical
     source_tier: P1
     statement: "The 5-plate / 2-stud SNOT identity is legal and exact (40 LDU)."
@@ -631,6 +686,7 @@ rules:
   - id: E-01
     name: MATRIX_WELL_FORMED
     tier: HARD
+    kind: constraint
     domain: file
     source_tier: P1
     statement: "The 9 matrix values are ROW-major: (a,b,c) is the first row. (a,d,g) is the image of the X axis."
@@ -693,6 +749,7 @@ rules:
   - id: E-02
     name: Y_IS_UP_NEGATIVE
     tier: DISCOURAGED
+    kind: constraint
     domain: file
     source_tier: S
     statement: "-Y is up. Stack upward by decreasing Y. Part origin sits on the TOP face."
@@ -760,6 +817,7 @@ rules:
   - id: E-03
     name: MODEL_COLOUR_CONCRETE
     tier: HARD
+    kind: constraint
     domain: file
     source_tier: P1
     statement: "Model type-1 lines use concrete colour codes. Parts use 16. Colour 24 never appears on a type-1 line."
@@ -770,6 +828,7 @@ rules:
   - id: E-04
     name: GRID_ALIGNMENT
     tier: DISCOURAGED
+    kind: constraint
     domain: physical
     source_tier: S
     statement: "Placements land on the System's own 2 LDU lattice. The ordinary studs-up lattice is 10 in X/Z and 4 in Y, but SNOT and Technic constructions legitimately land between."
@@ -808,6 +867,7 @@ rules:
   - id: E-05
     name: MPD_STRUCTURE
     tier: HARD
+    kind: constraint
     domain: file
     source_tier: P1
     statement: "First 0 FILE block is the main model. Blocks are a flat list; nesting is by reference only."
@@ -817,6 +877,7 @@ rules:
   - id: E-06
     name: NO_BFC_IN_MODELS
     tier: DISCOURAGED
+    kind: constraint
     domain: file
     source_tier: P1
     statement: "Emit no BFC statements in a model file. They are for part files."
@@ -825,6 +886,7 @@ rules:
   - id: E-07
     name: NO_DEPRECATED_PARTS
     tier: DISCOURAGED
+    kind: constraint
     domain: file
     source_tier: P1
     statement: "Do not reference ~Moved to aliases or ~-prefixed hidden parts."
@@ -848,6 +910,7 @@ rules:
   - id: E-08
     name: PART_NUMBERS_RESOLVED
     tier: HARD
+    kind: constraint
     domain: file
     source_tier: P1
     statement: "Never invent part numbers. Resolve against the real library."
@@ -858,6 +921,7 @@ rules:
   - id: E-09
     name: ORIGIN_NOT_COMPUTED
     tier: HARD
+    kind: constraint
     domain: file
     source_tier: S
     statement: "Do not compute part origin as the centroid of its footprint. Use a per-part table."
@@ -870,6 +934,7 @@ rules:
   - id: E-10
     name: FILE_PARSES
     tier: HARD
+    kind: constraint
     domain: file
     source_tier: P1
     statement: "Every line must be a valid LDraw line type with the correct token count and numeric fields."
@@ -884,6 +949,7 @@ rules:
   - id: T-01
     name: MEASURED_SLOPE_ANGLES
     tier: HARD
+    kind: constraint
     domain: file
     source_tier: S
     statement: "Slope part NAMES are systematically wrong. Use measured geometry."
@@ -898,6 +964,7 @@ rules:
   - id: T-02
     name: EXACT_ROTATIONS_ARE_RATIONAL
     tier: DISCOURAGED
+    kind: constraint
     domain: file
     source_tier: S
     statement: "For Pythagorean-triple rotations, emit the exact rational cos/sin, never cos(36.87 deg)."
@@ -910,6 +977,7 @@ rules:
   - id: T-03
     name: ONLY_N4_CLOSES
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: S
     statement: "Only theta in {0,90,180,270} maps the stud lattice onto itself. N=4 is the ONLY exactly-closing rosette."
@@ -921,7 +989,7 @@ rules:
 
   - id: T-04
     name: MACARONI_LAW
-    tier: LEGAL
+    kind: reference
     domain: physical
     source_tier: S
     statement: "Corner-round NxN parts are quarter annuli: R_outer = 20N, R_inner = 20(N-1), wall always exactly 20 LDU."
@@ -929,7 +997,7 @@ rules:
 
   - id: T-05
     name: CURVED_SLOPES_ARE_ELLIPTICAL
-    tier: HARD
+    kind: reference
     domain: physical
     source_tier: S
     statement: "Every curved slope in the System is elliptical; none is circular."
@@ -942,15 +1010,23 @@ rules:
 
   - id: T-06
     name: NEVER_FORCE_A_BOW
-    tier: HARD
+    tier: DISCOURAGED
+    kind: constraint
     domain: physical
     source_tier: S
     statement: "Never shorten a run to force a curve."
     data: {example: "1 LDU shortening on a 1x8 produces a 7.7 LDU sagitta"}
+    note: >
+      DEMOTED HARD -> DISCOURAGED 2026-08-22 by the tier audit. Forcing a bow
+      stresses a run rather than damaging an element, and the source is derived
+      (S). Phrased as a prohibition ("Never shorten a run to force a curve"),
+      but phrasing is not force -- see B-07, whose "must" was likewise imported
+      from a source that said "should".
 
   - id: T-07
     name: LOAD_BUDGET
     tier: DISCOURAGED
+    kind: constraint
     domain: physical
     source_tier: S
     statement: "Stud engagement must be budgeted against hanging mass."
@@ -966,14 +1042,23 @@ rules:
 
   - id: T-08
     name: TILES_ARE_SLIP_PLANES
-    tier: HARD
+    tier: DISCOURAGED
+    kind: constraint
     domain: physical
     source_tier: S
     statement: "Never place a tile in a load path."
+    note: >
+      DEMOTED HARD -> DISCOURAGED 2026-08-22 by the tier audit. A tile in a load
+      path slips; nothing breaks. HARD in this corpus means "stresses or damages
+      an element", which this does not, and the source is derived (S) rather
+      than first-party. T-07 LOAD_BUDGET is the same family and was already
+      DISCOURAGED -- that inconsistency is what surfaced this. Same reasoning as
+      B-07: weakness is not damage.
 
   - id: T-09
     name: SNOT_COMMENSURABILITY
     tier: HARD
+    kind: constraint
     domain: physical
     source_tier: S
     statement: "A SNOT sandwich must return to the grid."
@@ -983,6 +1068,7 @@ rules:
   - id: T-10
     name: BRACKET_NOT_COMMENSURATE
     tier: DISCOURAGED
+    kind: constraint
     domain: physical
     source_tier: S
     statement: "1x2 bracket child face offset from the parent edge is 12 LDU — NOT grid-commensurate."
@@ -993,6 +1079,7 @@ rules:
   - id: T-11
     name: SCALE_THRESHOLD
     tier: STYLE
+    kind: constraint
     domain: physical
     source_tier: S
     statement: "Any dimension over 1 m requires a steel armature; brick becomes cladding."

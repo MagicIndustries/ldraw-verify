@@ -112,5 +112,42 @@ inconsistency. All three are `source_tier: S` — derived, not first-party.
    most `L-*`) are genuinely stated as prohibitions by first-party sources.
    The problem is concentrated in the derived `T-*` rules and the facts.
 
-Items 1–4 change how the corpus is consumed, so they are recorded here rather
-than applied. Only the `domain` field and the B-07 rename have been applied.
+## Applied — 2026-08-22
+
+All four were applied.
+
+**1. `kind: constraint | reference | permission`.** 41 / 2 / 3. Only a
+constraint carries a tier; the other two omit the field rather than parking a
+meaningless value in it. `LEGAL` is retired — the rules that used it are now
+`kind: permission`, and `T-05` joined `T-04` as `kind: reference`, which is
+what resolves the "same statement, two severities" inconsistency.
+
+`Registry` now decides what to execute from `kind` rather than inferring it
+from `tier === "LEGAL"`. Permissions and references report `informational` and
+are never evaluated. `STYLE` stays a real tier on a real constraint — a rule
+that *can* be violated but never gates — which is what `L-12` and `T-11` are.
+
+**2. `T-08` and `T-06` demoted to DISCOURAGED**, matching `T-07`. Weakness is
+not damage, and both are derived sources.
+
+**3. `L-12` dropped to STYLE**, not removed. Its statement names no condition,
+so nothing can violate it — but unlike `L-03`, which was *wrong* and deleted,
+this one is merely *unstated*, and deleting it would lose a pointer at a real
+interaction. Restore a severity when someone can write the condition down.
+
+**4. `B-09` scoped rather than re-tiered.** `domain: submission` now carries
+the scope, and the `tiers:` block says what each tier means within it: HARD
+means "the submission is rejected", not "an element is damaged". The tier means
+what it means *within* a rule's domain, never across domains.
+
+Resulting distribution: HARD 26 (was 30), DISCOURAGED 13 (was 11), STYLE 2,
+untiered 5. Every rule verdict over a 244-model corpus sample is unchanged —
+this was a reclassification, not a behaviour change.
+
+## Still open
+
+`E-01`, `E-05`, `T-01`, `T-03` and `L-01` remain `constraint` although their
+*statements* are written as facts. Each has a real implied constraint and, for
+`E-01` and `E-05`, a working predicate that tests it — the statements are what
+need rewriting, not the kind. Finding 2 above overcounted by listing them as
+references; only `T-04` and `T-05` are irreducibly facts.
