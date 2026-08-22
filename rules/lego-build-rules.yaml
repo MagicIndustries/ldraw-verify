@@ -87,24 +87,57 @@ rules:
       returned `unknown` (coverage 74-96%) and the only input that ever reached a verdict
       was a two-brick test fixture. Reformulated on the asymmetry the whole layer already
       rests on (missing data can only HIDE a connection, never invent one), in three
-      sound clauses: (1) ONE component is a `pass` at any coverage, since a hidden edge
-      can only merge components; (2) with no data gap anywhere, the count is exact and
-      >1 is a genuine `fail`; (3) a component whose every placement has complete data AND
-      no unpaired connector cannot be the far end of a hidden connection, so it is
-      provably separate even when the rest of the model has gaps. Otherwise `unknown`,
-      naming the components and the gap rather than a coverage percentage. Measurement
-      also found and fixed a real completeness gap: a [slide=true] axle or pin mates
-      anywhere ALONG its axis while hotspot pairing only sees coincident positions, so an
-      axle-plus-bush pair looked like a sealed floating island -- both of B-06's only two
-      `fail` verdicts on the 24-model sample (4519+32269 in 41999-1.mpd, 3707+4265b in
-      5571-1.mpd) were that, and both were false positives. Sliding connectors now count
-      as incomplete data. Post-fix on that sample: 2/24 models reach a verdict (both
-      `pass`), 0 false positives, 22/24 `unknown`. STATED PLAINLY, per the brief's option
-      (b) as well as (a): clause 3 is rarely satisfied on a large real model, because any
-      outward-facing stud is a free connector, so B-06 still abstains on most real sets
-      -- now for a stated per-component reason rather than because a fifth of parts will
-      never have shadow data. Closing that gap needs a geometric bound on where a
-      data-less part's unmodelled connectors could reach, which is not implemented.
+      clauses -- two sound outright, one sound under a stated assumption: (1) ONE
+      component is a `pass` at any coverage, since a hidden edge can only merge
+      components; (2) with no data gap anywhere, the count is exact and >1 is a genuine
+      `fail`, ASSUMING every real connection the pairing logic could see would in fact
+      have been paired (see the VERIFICATION PASS note below -- this does not always
+      hold); (3) a component whose every placement has complete data AND no unpaired
+      connector cannot be the far end of a hidden connection, so it is provably separate
+      even when the rest of the model has gaps, GIVEN that its shadow data enumerates
+      every physical connector the part actually has (see the same note -- this also
+      does not always hold). Otherwise `unknown`, naming the components and the gap
+      rather than a coverage percentage. Measurement also found and fixed a real
+      completeness gap: a [slide=true] axle or pin mates anywhere ALONG its axis while
+      hotspot pairing only sees coincident positions, so an axle-plus-bush pair looked
+      like a sealed floating island -- both of B-06's only two `fail` verdicts on the
+      24-model sample (4519+32269 in 41999-1.mpd, 3707+4265b in 5571-1.mpd) were that,
+      and both were false positives. Sliding connectors now count as incomplete data.
+      Post-fix on that sample: 2/24 models reach a verdict (both `pass`), 0 false
+      positives, 22/24 `unknown`. STATED PLAINLY, per the brief's option (b) as well as
+      (a): clause 3 is rarely satisfied on a large real model, because any outward-facing
+      stud is a free connector, so B-06 still abstains on most real sets -- now for a
+      stated per-component reason rather than because a fifth of parts will never have
+      shadow data. Closing that gap needs a geometric bound on where a data-less part's
+      unmodelled connectors could reach, which is not implemented.
+      VERIFICATION PASS, three corrections.
+      (1) CLAUSE 2, ASSUMPTION NOT SOUNDNESS. The paragraph above originally called all
+      three clauses "sound" outright. Clause 2 is not: it assumes every real connection
+      this tool's pairing logic could see would in fact have been paired, and that
+      assumption fails whenever two real, differently-kinded connectors mate --
+      `hotspotsCompatible` (src/connect/graph.ts) requires both sides to share a `kind`,
+      stricter than LDCad's own pairing rules, and a model with complete data everywhere
+      plus one such kind-mismatched real connection would trip clause 2 into a false
+      `fail`. Currently LATENT, not live: every one of the 98 real OMR models sampled
+      while validating this rule had at least one data gap, so clause 2 has never
+      actually fired on real input -- but that is "not yet observed", not "cannot
+      happen". Restated as an assumption in both this note and the rule's own doc
+      comment (src/rules/l4-connectivity.ts).
+      (2) CLAUSE 3'S OWN UNSTATED ASSUMPTION. Clause 3 is sound only given that a
+      component's shadow data enumerates every physical connector the part actually
+      has. It does not always: a part whose clip or bar mount is simply absent from its
+      own shadow closure contributes no `SNAP_CLP` for the unpairable-kind check to see,
+      so that placement can read as "fully accounted" (no MODELLED hotspot left
+      unpaired) while carrying a real, physically present, entirely unmodelled
+      connector. This caveat previously went undisclosed; it is now stated alongside
+      clause 2's in the rule's own doc comment.
+      (3) MESSAGE ATTRIBUTION. When the sealed component clause 3 proves separate is
+      actually the model's own main body (fully enclosed, larger than everything else in
+      the model combined), the `fail` message and its locations used to name the main
+      body as the problem. Clause 3's proof is symmetric in which side it calls
+      "separate"; only the framing of which side is the anomaly needs to track size. The
+      rule now reports the smaller side as the floating part in that case, naming the
+      main body only as the proof, not as what to look at.
 
   - id: B-01
     name: NO_STUD_IN_PINHOLE
@@ -470,7 +503,7 @@ rules:
       catchable this way). What det(R)==+1 AND R*transpose(R)==I actually
       catches: a singular (zero-scaled), sheared, or non-uniformly scaled
       transform -- see the three corpus-measured, non-defect sources of
-      non-orthonormality below, which is what set ORTHONORMAL_EPS. Detecting a
+      non-orthonormality below, which is what set ORTHONORMALITY_EPS. Detecting a
       transposed placement instead requires knowing the intended geometry, which
       a verifier reading one file does not have -- see `not_checkable` below.
       FINAL FIX WAVE: renamed MATRIX_ROW_MAJOR -> MATRIX_WELL_FORMED. The old name
@@ -493,23 +526,30 @@ rules:
       src/resolve/resolve.ts). (2) ordinary 6-decimal-place authoring plus curved-track
       small-angle approximation (e.g. 10001-1.mpd's curved 9V track, 74747.dat) compounds
       up to ~0.04 row-norm deviation, two orders of magnitude below genuine
-      shear/transposition (~0.1+); ORTHONORMAL_EPS raised 1e-3 -> 0.05 to clear it with
-      headroom (src/rules/l2-matrix.ts). (3) LDCad's own auto-generated flexible-path
-      fallback content (`0 !LDCAD GENERATED`, real files: Power Functions cables, Technic
-      chains/treads) deliberately shears/scales each segment to approximate a curve a
-      physically flexible element is allowed to take (determinant up to ~42 measured);
-      such placements now report `unknown`, not `fail` (Placement.generatedFlexPath,
-      src/resolve/{ir,resolve}.ts). Pre-fix measured rate: 97.71% of applicable real
-      models (30-model sample, finding-count framing); see the Task 14 report for the
-      post-fix per-model rate.
+      shear/scale (~0.1+); ORTHONORMALITY_EPS raised 1e-3 -> 0.05 to clear it with
+      headroom (src/resolve/matrix.ts, consumed by src/rules/l2-matrix.ts). (3) LDCad's
+      own auto-generated flexible-path fallback content (`0 !LDCAD GENERATED`, real
+      files: Power Functions cables, Technic chains/treads) deliberately shears/scales
+      each segment to approximate a curve a physically flexible element is allowed to
+      take (determinant up to ~42 measured); such placements now report `unknown`, not
+      `fail` (Placement.generatedFlexPath, src/resolve/{ir,resolve}.ts). Pre-fix
+      measured rate: 97.71% of applicable real models (30-model sample, finding-count
+      framing); see the Task 14 report for the post-fix per-model rate.
+      VERIFICATION PASS: the FINAL FIX WAVE paragraph above claimed the note's tail was
+      corrected from "genuine shear/transposition (~0.1+)" to "genuine shear/scale
+      (~0.1+)", but the correction was never actually applied here -- only the claim
+      that it had been was written. This paragraph is that correction, applied for
+      real. `src/rules/l2-matrix.ts` and `src/resolve/matrix.ts` were already correct;
+      only this corpus copy carried the false claim, compounded by a false statement
+      that it had been fixed.
 
   - id: E-02
     name: Y_IS_UP_NEGATIVE
     tier: DISCOURAGED
-    source_tier: P1
+    source_tier: S
     statement: "-Y is up. Stack upward by decreasing Y. Part origin sits on the TOP face."
     check: grid
-    predicate: "all y <= 0 AND y mod 2 == 0"
+    predicate: "y mod 2 == 0"
     note: >
       A brick on the ground has origin_y = -24. Do not add stud height when stacking.
       TASK 14: demoted HARD -> DISCOURAGED. "y <= 0 throughout" and "y mod 4 == 0" are
@@ -542,6 +582,32 @@ rules:
       -- not `fail` -- for a placement reached through a non-axis-aligned ancestor
       transform, where a world-frame grid claim is not decidable at all
       (src/rules/l3-grid.ts).
+      VERIFICATION PASS, two corrections.
+      (1) SOURCE TIER. Demoted P1 -> S. This note's own TASK 14 paragraph already
+      concedes "y <= 0 throughout" and "y mod 4 == 0" are a generator convention, not a
+      LEGO Group / BrickLink first-party statement, and the FINAL FIX WAVE paragraph
+      derives the corrected 2 LDU quantum from the gcd of this file's OWN meta.ldu
+      constants, not from any cited source. That is a first-party label on this
+      repository's own derivation. Nobody checked whether a 2 LDU lattice, or the
+      original 4/10 moduli it replaced, have independent first-party backing -- see the
+      final fix wave's self-review. S ("secondary analysis that shows its working") is
+      what this note actually is: it shows the gcd derivation and the measurement: an
+      honest label, not a downgrade of the underlying reasoning.
+      (2) THE y <= 0 CLAUSE. Removed from the predicate. It is the same class of error
+      as the y mod 4 quantum this note already corrected: "build up from a ground plane
+      at y=0" is a generator convention, one particular way to AUTHOR a model, not a
+      property every valid placement has. This note's own TASK 14 paragraph already
+      measured genuine released sets placing parts at y > 0 (a part hanging below a
+      hinge point) and said so in as many words -- the predicate simply never caught up
+      to its own note. Directly measured over the 24-model OMR sample already used
+      elsewhere in this file: the y > 0 branch fired on 11 of 24 models and 173
+      placements, essentially the same footprint as the y-mod-4 branch this note already
+      corrected for the identical reason. A model whose origin is not at its ground
+      plane is not invalid, so there is nothing left for this clause to legitimately
+      assert; y mod 2 == 0 alone is what E-02 now checks. Corrected predicate re-measured
+      over the same 98-model sample used for the final fix wave's post-fix table:
+      applicable/failed model counts and the finding count are in
+      .superpowers/sdd/final-fix-report.md's "Verification fixes" section.
 
   - id: E-03
     name: MODEL_COLOUR_CONCRETE
@@ -555,7 +621,7 @@ rules:
   - id: E-04
     name: GRID_ALIGNMENT
     tier: DISCOURAGED
-    source_tier: P1
+    source_tier: S
     statement: "Placements land on the System's own 2 LDU lattice. The ordinary studs-up lattice is 10 in X/Z and 4 in Y, but SNOT and Technic constructions legitimately land between."
     check: grid
     predicate: "x mod 2 == 0 AND z mod 2 == 0"
@@ -579,6 +645,15 @@ rules:
       on exactly those offsets; the corrected predicate takes the rule from 1198 to 286
       fail-findings while still catching all 84 fractional coordinates and the 122
       quarter-stud (5 LDU) ones.
+      VERIFICATION PASS: SOURCE TIER demoted P1 -> S, for the same reason as E-02. The
+      2 LDU lattice above is this repository's own derivation -- the gcd of this file's
+      own meta.ldu constants -- not a cited LEGO Group / BrickLink first-party figure,
+      and nobody has checked whether that lattice, or the original 10 LDU modulus it
+      replaced, has independent first-party backing (see the final fix wave's
+      self-review). S ("secondary analysis that shows its working") is what this note
+      already is; P1 mislabelled its provenance, which matters because this file is
+      slated for backport into a canonical copy in another repository, and a backport
+      reviewer there cannot detect a provenance error a first-party label conceals.
 
   - id: E-05
     name: MPD_STRUCTURE

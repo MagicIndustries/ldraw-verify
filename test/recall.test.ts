@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { ALL_RULES, verifyFile } from "../src/verify.js";
+import { LibraryIndex } from "../src/library/index.js";
 import { loadCorpus } from "../src/rules/registry.js";
 import { ruleOutcome } from "../src/rules/types.js";
 import type { Status, Tier } from "../src/rules/types.js";
@@ -32,6 +33,26 @@ import type { Status, Tier } from "../src/rules/types.js";
 
 const OPTS = { libraryRoot: ".cache/ldraw", corpusPath: "rules/lego-build-rules.yaml" };
 
+/**
+ * Warms the shared `LibraryIndex` (see `src/library/index.ts`) before ANY
+ * case in this file runs, `golden.test.ts`-style.
+ *
+ * `LibraryIndex.fromDirectory` now memoises process-wide, so only the
+ * FIRST call in a worker pays the ~26k-file directory scan (~2.6s on a
+ * warm filesystem cache, more under CPU contention) -- every call after
+ * that is free. That memo removes the N-th scan, not the first: whichever
+ * case runs first in this file's worker still has to pay it inline, inside
+ * whatever timeout that individual `it` carries. The CASES block below
+ * (E-03 first, at vitest's default 5s) was exactly that first caller, so
+ * it timed out under contention even though the *real* defect (repeated
+ * re-scanning) was already fixed. Paying the scan cost here, once, under
+ * its own generous timeout, means no individual case has to budget for a
+ * cold cache it happens to be first in line for.
+ */
+beforeAll(async () => {
+  await LibraryIndex.fromDirectory(OPTS.libraryRoot);
+}, 60_000);
+
 interface Case {
   rule: string;
   tier: Tier;
@@ -57,10 +78,16 @@ const CASES: Case[] = [
   // brief predicted; only E-02's and E-07's tier changed underneath the
   // same assertions (both demoted HARD -> DISCOURAGED, see the corpus
   // notes). E-01's fixture shear (b=0.5) is two orders of magnitude past
-  // even the widened ORTHONORMAL_EPS (0.05), so the tolerance change did
+  // even the widened ORTHONORMALITY_EPS (0.05), so the tolerance change did
   // not affect this fixture's outcome.
   { rule: "E-03", tier: "HARD", illegal: "e03-colour16.ldr", legal: "e03-concrete-colour.ldr" },
-  { rule: "E-02", tier: "DISCOURAGED", illegal: "e02-positive-y.ldr", legal: "e02-negative-y.ldr" },
+  // VERIFICATION PASS: illegal fixture swapped from e02-positive-y.ldr
+  // (y = 24) to e02-odd-y.ldr (y = -25). E-02's y <= 0 clause was removed
+  // (see l3-grid.ts's SYSTEM_LDU_QUANTUM doc comment and E-02's corpus
+  // note), so a positive Y is no longer a violation and the old fixture
+  // would silently stop exercising this rule at all. The new fixture
+  // exercises the clause E-02 actually still has: y mod 2 != 0.
+  { rule: "E-02", tier: "DISCOURAGED", illegal: "e02-odd-y.ldr", legal: "e02-negative-y.ldr" },
   { rule: "E-01", tier: "HARD", illegal: "e01-sheared.ldr", legal: "e01-rotated-y90.ldr" },
   { rule: "E-07", tier: "DISCOURAGED", illegal: "e07-moved-alias.ldr", legal: "e07-current-part.ldr" },
 
@@ -120,14 +147,13 @@ const GRAPH_CASES: Case[] = [
 ];
 
 /**
- * The connectivity cases below keep a 30s timeout, but no longer because
- * of a defect: `verifyFile` used to rebuild the whole ~26k-file
- * `LibraryIndex` on every call (~2.6s each), which made the E-03 case
- * above time out reproducibly at vitest's default 5s under contention with
- * the graph suites. That re-index is now shared process-wide (see
- * `LibraryIndex.fromDirectory`) and the whole suite runs in ~8s. The
- * generous timeout stays only as insurance for the FIRST index on a cold
- * filesystem cache, which is genuinely slow and genuinely unavoidable.
+ * The connectivity cases below keep a 30s timeout, but not because they pay
+ * for the directory scan -- the top-level `beforeAll` above already warmed
+ * the shared `LibraryIndex` before any case in this file (including these)
+ * runs, so that cost is already sunk by the time any of these execute. It
+ * stays as insurance for the shadow-library open (`openShadowLibrary`) and
+ * the connectivity-graph walk itself, which are genuinely slower than a
+ * plain `verifyFile` call and were never what made E-03 time out.
  */
 async function graphOutcomeOf(path: string, rule: string): Promise<{ status: Status; tier: Tier }> {
   const r = await verifyFile(path, { ...OPTS, shadowDir: shadowDir! });

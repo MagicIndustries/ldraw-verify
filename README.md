@@ -19,9 +19,9 @@ The `L-*` rules derive from a 2006 presentation its own author has stated is sup
 
 | exit | meaning | measured on real released sets |
 | --- | --- | --- |
-| 0 | no `fail` at any tier | 3.06% |
+| 0 | no `fail` at any tier | 4.08% |
 | 1 | at least one `HARD` fail | 3.06% |
-| 2 | no HARD fail, at least one `DISCOURAGED` fail | 93.88% |
+| 2 | no HARD fail, at least one `DISCOURAGED` fail | 92.86% |
 | 3 | the tool itself could not run (bad arguments, unreadable input) | — |
 
 **Gate automation on exit 1, never on "nonzero".** Those percentages are
@@ -71,7 +71,14 @@ error rates:
 - **`E-07` (`NO_DEPRECATED_PARTS`)** — 92/98 (**93.88%**). Almost certainly all
   true: a set authored decades ago references the part numbers that were
   current then, and many have since been renamed to `~Moved to` aliases.
-- **`E-02` (`Y_IS_UP_NEGATIVE`)** — 72/78 (**92.31%**).
+- **`E-02` (`Y_IS_UP_NEGATIVE`)** — 65/73 (**89.04%**). A verification pass
+  removed this rule's `y <= 0` clause (VERIFICATION PASS note in
+  `rules/lego-build-rules.yaml`): "built up from a ground plane at y=0" is a
+  generator convention, not a property every valid placement has — measured
+  directly, real released sets place parts at y > 0 (e.g. hanging below a
+  hinge point), which was already true and already stated in this rule's own
+  corpus note before the clause was removed. Only the `y mod 2 == 0` lattice
+  check remains.
 - **`E-04` (`GRID_ALIGNMENT`)** — 60/69 (**86.96%**).
 - **`B-05` (`NO_FRACTIONAL_ROTATION`)** — 45/98 (**45.92%**). Demoted from
   `HARD` in the final fix wave, on the corpus's own tier definitions rather

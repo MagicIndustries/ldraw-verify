@@ -1,3 +1,5 @@
+import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { LibraryIndex } from "../src/library/index.js";
 
@@ -63,13 +65,51 @@ describe("LibraryIndex", () => {
     expect(afterClear.get("3001.dat")!.description).toBe(first.get("3001.dat")!.description);
   });
 
-  it("does not cache a failed scan as a permanent failure", async () => {
-    // A directory with no parts/p subdirectories yields an empty index
-    // rather than throwing, so the observable contract here is simply that
-    // repeated calls keep working; the eviction it guards (see
-    // `indexCache`) is that a rejected scan must not be replayed forever.
+  it("does not throw for a directory with no parts/p subdirectories (empty index, not a rejection)", async () => {
+    // Renamed from "does not cache a failed scan as a permanent failure":
+    // a missing root directory never actually rejects `scanDirectory` --
+    // `readdir` is caught per-subdirectory inside the scan (see
+    // `scanDirectory`'s `try { names = await readdir(dir); } catch {
+    // continue; }`), so this path returns an empty index, not a rejected
+    // promise. That is a real and useful guarantee (an unusual library
+    // layout degrades to "nothing indexed" rather than throwing), but it is
+    // NOT the eviction path `indexCache` exists for -- see the test below
+    // for that.
     const missing = await LibraryIndex.fromDirectory("test/fixtures/does-not-exist");
     expect(missing.size).toBe(0);
     expect((await LibraryIndex.fromDirectory("test/fixtures/does-not-exist")).size).toBe(0);
+  });
+
+  it("evicts a rejected scan so the next call re-scans instead of replaying the failure", async () => {
+    // A genuine rejection needs a `readFile` inside the per-directory loop
+    // to fail -- the only unguarded fs call in `scanDirectory` (`readdir`
+    // failures are all caught locally, see the test above). An unreadable
+    // `.dat` file (chmod 000) does that reliably: `readdir` lists it, then
+    // reading its first line throws EACCES, rejecting the whole scan.
+    const dir = "test/fixtures/broken-scan";
+    const partsDir = join(dir, "parts");
+    const datPath = join(partsDir, "unreadable.dat");
+    try {
+      await mkdir(partsDir, { recursive: true });
+      await writeFile(datPath, "0 Test Unreadable Part\n");
+      await chmod(datPath, 0o000);
+      LibraryIndex.clearCache();
+
+      await expect(LibraryIndex.fromDirectory(dir)).rejects.toThrow();
+
+      // If the rejection had been cached forever (the bug `indexCache`'s
+      // eviction guards against), this second call would replay the same
+      // stale rejection instead of re-scanning -- so fixing the permission
+      // and observing a SUCCESSFUL second call is what actually exercises
+      // the eviction path, not just the empty-index case above.
+      await chmod(datPath, 0o644);
+      const lib = await LibraryIndex.fromDirectory(dir);
+      expect(lib.size).toBe(1);
+      expect(lib.has("unreadable.dat")).toBe(true);
+    } finally {
+      await chmod(datPath, 0o644).catch(() => {});
+      await rm(dir, { recursive: true, force: true });
+      LibraryIndex.clearCache();
+    }
   });
 });

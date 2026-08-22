@@ -33,6 +33,22 @@ import type { Finding, Rule, RuleContext } from "./types.js";
  * correction to what the rule claims, not a tolerance widened until a rate
  * fell: the number that changes it is 10, from the corpus's own meta
  * block, not the failure rate.
+ *
+ * VERIFICATION PASS: E-02 used to also reject any placement with y > 0
+ * ("a model built from a ground plane at y=0 has y <= 0"). That is the
+ * SAME class of error as the quantum correction above: "build up from a
+ * ground plane at y=0" is a generator convention -- one particular way to
+ * AUTHOR a model -- not a property every valid placement has. A model
+ * whose origin is not at its own ground plane (a part hanging below a
+ * hinge point; a submodel authored with its own local origin elsewhere) is
+ * not invalid. Measured over the same 24-model OMR sample used above: the
+ * y > 0 branch fired on 11 of 24 models and 173 placements -- essentially
+ * the same footprint as the quantum branch this file already corrects for
+ * the identical reason. Removed outright rather than narrowed: unlike the
+ * quantum (which has a real in-system value, 2, to narrow to), there is no
+ * world-frame threshold on y that is true of every valid placement, so
+ * there is nothing left for a `y <= 0` clause to legitimately assert. See
+ * E-02's corpus note for the correction record.
  */
 const SYSTEM_LDU_QUANTUM = 2;
 
@@ -109,18 +125,13 @@ const yAxis: Rule = {
         continue;
       }
 
+      // No y <= 0 check here -- see the doc comment above the SYSTEM_LDU_QUANTUM
+      // section header and this rule's corpus note (VERIFICATION PASS) for why
+      // that clause was removed rather than corrected: "built up from a ground
+      // plane at y=0" is one generator's authoring convention, not a property
+      // every valid placement has, and real released sets measurably place
+      // parts at y > 0 (e.g. hanging below a hinge point).
       const [, y] = translationOf(p.world);
-      if (y > GRID_RESIDUAL_EPS) {
-        out.push({
-          ruleId: meta.id,
-          tier: meta.tier,
-          status: "fail",
-          message: `y = ${y}: in LDraw -Y is up, so a model built from a ground plane at y=0 has y <= 0`,
-          locations: [{ file: p.file, line: p.line, partId: p.partId }],
-          evidence: { y },
-        });
-        continue;
-      }
       if (!isMultiple(y, SYSTEM_LDU_QUANTUM)) {
         out.push({
           ruleId: meta.id,

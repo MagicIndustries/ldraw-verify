@@ -69,9 +69,12 @@ describe("compiled dist/ build", () => {
     async () => {
       const fixture = join(workDir, "bad.ldr");
       // Same deliberately-broken model as the task-13 end-to-end check:
-      // colour 16 at top level (E-03), a positive Y (E-02), and an
-      // off-grid X (E-04).
-      await writeFile(fixture, "0 FILE bad.ldr\r\n1 16 7 24 0 1 0 0 0 1 0 0 0 1 3001.dat\r\n");
+      // colour 16 at top level (E-03), an off-grid X (E-04), and
+      // (VERIFICATION PASS: y changed from 24 to 25) an odd Y (E-02) --
+      // E-02's old "y > 0 is always a violation" clause was removed (see
+      // l3-grid.ts and E-02's corpus note), so y = 24 no longer fails it;
+      // y = 25 still violates the y mod 2 == 0 clause that remains.
+      await writeFile(fixture, "0 FILE bad.ldr\r\n1 16 7 25 0 1 0 0 0 1 0 0 0 1 3001.dat\r\n");
 
       let stdout = "";
       let exitCode = 0;

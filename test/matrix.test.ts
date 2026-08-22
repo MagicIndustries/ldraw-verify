@@ -82,9 +82,10 @@ describe("matrix", () => {
 
     it("pins behaviour at the tolerance boundary", () => {
       // A rotation whose off-axis entries are exactly 0.005 -- deliberately
-      // straddling two epsilons used elsewhere in this codebase (AXIS_EPS =
-      // 1e-3 in l3-grid.ts, ORTHONORMAL_EPS = 0.05 in l2-matrix.ts) so this
-      // test pins the boundary rather than just the interior.
+      // straddling two epsilons used elsewhere in this codebase
+      // (AXIS_ALIGNED_ENTRY_EPS = 1e-3, ORTHONORMALITY_EPS = 0.05, both
+      // defined in src/resolve/matrix.ts) so this test pins the boundary
+      // rather than just the interior.
       const s = 0.005;
       const c = Math.sqrt(1 - s * s);
       const m = fromLdraw([0, 0, 0], [c, 0, s, 0, 1, 0, -s, 0, c]);

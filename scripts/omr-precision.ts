@@ -206,13 +206,38 @@ const startedAt = Date.now();
 const allEntries = await readdir(omrDir);
 const corpusFiles = allEntries.filter((f) => [".ldr", ".mpd"].includes(extname(f).toLowerCase())).sort();
 
+/**
+ * English ordinal suffix for a positive integer. The obvious `n % 10`
+ * switch is wrong on its own -- 11/12/13 take "th", not "st"/"nd"/"rd",
+ * because the 11-13 exception is keyed off `n % 100`, not `n % 10`. A
+ * three-way ternary on the exact values 1/2/3 (this function's previous
+ * form) also gets it wrong for every value above 3 that isn't already
+ * excluded by the "every 1st" special case above: 21 % 10 == 1 but 21 is
+ * not one of {1,2,3}, so it fell through to the "th" default and printed
+ * "21th"/"22th"/"23th" instead of "21st"/"22nd"/"23rd".
+ */
+function ordinalSuffix(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return "th";
+  switch (n % 10) {
+    case 1:
+      return "st";
+    case 2:
+      return "nd";
+    case 3:
+      return "rd";
+    default:
+      return "th";
+  }
+}
+
 // The sample is a deterministic stride over the sorted listing, not a
 // random draw: quoting a rate without being able to reproduce the exact
 // sample it came from is how a measured number turns into folklore.
 const sampleRule =
   sampleEvery === 1 && sampleLimit === Number.MAX_SAFE_INTEGER
     ? "every model in the directory"
-    : `every ${sampleEvery}${sampleEvery === 1 ? "" : sampleEvery === 2 ? "nd" : sampleEvery === 3 ? "rd" : "th"} file by sorted name` +
+    : `every ${sampleEvery}${ordinalSuffix(sampleEvery)} file by sorted name` +
       (sampleOffset > 0 ? `, starting at offset ${sampleOffset}` : "") +
       (sampleLimit === Number.MAX_SAFE_INTEGER ? "" : `, capped at ${sampleLimit}`);
 const files = corpusFiles.filter((_, i) => i >= sampleOffset && (i - sampleOffset) % sampleEvery === 0).slice(0, sampleLimit);

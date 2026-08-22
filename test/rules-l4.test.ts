@@ -111,13 +111,43 @@ describe("B-06 no floating parts", () => {
   it("fails a sealed component even when the rest of the model has data gaps", () => {
     // Placements 0 and 1 form a component whose every placement has
     // complete data AND no unpaired connector, so no undetected connection
-    // can reach it; placement 2's data is missing entirely. The gap
+    // can reach it; placements 2-4's data is missing entirely. The gap
     // elsewhere is no reason to abstain about THIS component -- which is
-    // the whole point of the reformulation.
-    const g = graph([[0, 1], [2]], { incompleteDataPlacements: [2], fullyAccountedPlacements: [0, 1] });
-    const f = rule.run({ model: modelWith(g, 3), library: lib, meta });
+    // the whole point of the reformulation. The sealed side (2 placements)
+    // is deliberately kept smaller than the rest of the model (3
+    // placements) so this exercises the ordinary case -- see the "main
+    // body" test below for what happens when that's reversed.
+    const g = graph([[0, 1], [2, 3, 4]], {
+      incompleteDataPlacements: [2, 3, 4],
+      fullyAccountedPlacements: [0, 1],
+    });
+    const f = rule.run({ model: modelWith(g, 5), library: lib, meta });
     expect(f[0]!.status).toBe("fail");
     expect(f[0]!.message).toContain("connected only to");
+    // Locations name the sealed side (placements 0-1, lines 1-2), not the
+    // gappy rest of the model (placements 2-4, lines 3-5).
+    expect(f[0]!.locations.map((l) => l.line).sort()).toEqual([1, 2]);
+  });
+
+  // VERIFICATION PASS: when the SEALED component is the larger side -- the
+  // model's own main body, fully enclosed with no exposed connector -- the
+  // fail message and its locations must blame the smaller, genuinely
+  // floating side instead. Clause 3's proof ("this component cannot be
+  // joined to anything outside itself") is symmetric in which side it names
+  // as separate; only the framing of which side is "the anomaly" needs to
+  // track size, not which side happened to satisfy the sealed test.
+  it("blames the smaller floating side, not the sealed main body, when the sealed component is the larger one", () => {
+    const g = graph([[0, 1, 2, 3, 4], [5]], {
+      incompleteDataPlacements: [5],
+      fullyAccountedPlacements: [0, 1, 2, 3, 4],
+    });
+    const f = rule.run({ model: modelWith(g, 6), library: lib, meta });
+    expect(f[0]!.status).toBe("fail");
+    expect(f[0]!.message).toContain("main body");
+    expect(f[0]!.message).not.toContain("connected only to");
+    // Placement 5 is line 6 (1-indexed) in the fixture built by modelWith.
+    expect(f[0]!.locations).toHaveLength(1);
+    expect(f[0]!.locations[0]!.line).toBe(6);
   });
 
   it("returns unknown when no component is sealed and gaps exist", () => {
