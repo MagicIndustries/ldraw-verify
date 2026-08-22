@@ -84,7 +84,7 @@
  */
 import { readdir, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
-import { verifyFile } from "../src/verify.js";
+import { Verifier } from "../src/verify.js";
 import type { VerifyOptions } from "../src/verify.js";
 import type { Tier } from "../src/rules/types.js";
 
@@ -266,12 +266,17 @@ const exitCodes = new Map<number, number>();
 const skipped: SkippedModel[] = [];
 let scanned = 0;
 
-for (const [i, f] of files.entries()) {
-  const verifyOpts: VerifyOptions = {
-    libraryRoot: ".cache/ldraw",
-    ...(shadowDir !== undefined ? { shadowDir } : {}),
-  };
+// One verifier for the whole sweep. Built per file, this reloaded the parts
+// index and, worse, discarded the reference-closure cache keyed on the library
+// and shadow instances -- see Verifier's doc comment. Measured at 2.0x on a
+// 25-model sample spread across the corpus.
+const verifyOpts: VerifyOptions = {
+  libraryRoot: ".cache/ldraw",
+  ...(shadowDir !== undefined ? { shadowDir } : {}),
+};
+const verifier = await Verifier.create(verifyOpts);
 
+for (const [i, f] of files.entries()) {
   let result;
   try {
     // See PER_FILE_TIMEOUT_MS's doc comment: a rejection here abandons the
@@ -280,7 +285,7 @@ for (const [i, f] of files.entries()) {
     // the abandoned call eventually does settle, nothing is left awaiting
     // it, so its result (or error) is simply discarded.
     result = await Promise.race([
-      verifyFile(join(omrDir, f), verifyOpts),
+      verifier.verifyFile(join(omrDir, f)),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error(`timed out after ${PER_FILE_TIMEOUT_MS}ms`)), PER_FILE_TIMEOUT_MS),
       ),
