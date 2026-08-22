@@ -28,9 +28,9 @@ destroys the thing the fixture exists to demonstrate.
 
 | | |
 |---|---|
-| Illegal exemplars | 16 |
+| Illegal exemplars | 15 |
 | …whose rule is implemented, and which fire it | **7 of 7** |
-| …whose rule has no predicate yet (correctly silent) | 9 |
+| …whose rule has no predicate yet (correctly silent) | 8 |
 | Legal twins wrongly firing their own rule | **0** |
 
 Every exemplar whose rule exists demonstrates it. No legal twin false-positives.
@@ -51,7 +51,7 @@ these parts floated 14.1 LDU (=√(10²+10²)) from any connection point.
 | `G-01.legal` / `L-10.illegal` | 14.1 LDU ×2 | The two *supporting* plates re-seated — the wedged part deliberately left between studs |
 | `G-02.legal` | 16.0 LDU | Re-seated |
 | `L-01.illegal` | 30.3 LDU | Part was placed beyond the extent of the 1×2 brick it referenced |
-| `L-03.illegal` | 14.0 LDU | Same 14 LDU miss as B-01; now genuinely puts four studs into four Technic holes |
+
 | `L-04.legal` / `.illegal` | axis mismatch | Pin axis is local ±X but the hole's is +Z — a *rotation* error, not a position one. `.legal` now seats (3 edges); `.illegal` sits 10 LDU off-detent along the axis |
 | `L-07.illegal` / `.legal` | 2.0 / 3.9 LDU | A click hinge rotates about its **pin**, not the part origin; both now connect at 11.25° and 22.5° respectively |
 | `T-08.illegal` | 8.0 LDU | Third brick re-seated |
@@ -84,3 +84,13 @@ LDCAD_SHADOW_DIR=/path/to/ldcad-shadow node scripts/part-hotspots.mjs 3700.dat
 ```
 
 The shadow library is CC BY-SA 4.0 and is never vendored — supply it by path.
+
+## L-03 removed (2026-08-22)
+
+Rebuilding L-03's exemplars to the geometry its statement actually described --
+one stud into a Technic hole is legal, two is not -- showed the statement itself
+was a misreading. The source warns that System and Technic do not share an edge
+datum, so System studs driven into Technic holes do not line up; that is a flat
+incompatibility, not an allowance of one stud. `B-01` states the ban flatly and
+is the rule kept. The rule, its two exemplars and its pending-inventory entry
+are gone; the corpus is now 46 rules.

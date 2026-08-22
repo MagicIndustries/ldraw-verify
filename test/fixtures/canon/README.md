@@ -30,14 +30,14 @@ total finding count.
 
 ## Second batch
 
-Added exemplars for `L-01`, `L-03`, `L-04`, `L-07`, `E-02`, `E-04`, `E-07`, `G-02`,
+Added exemplars for `L-01`, `L-04`, `L-07`, `E-02`, `E-04`, `E-07`, `G-02`,
 `T-01` and `T-08`, taking coverage from 9 rules to 19.
 
 | Exemplar | Fires | Note |
 |---|---|---|
 | `E-02.illegal` | `E-02`, `B-06` | correct |
 | `E-04.illegal` | `E-04`, `B-06` | correct |
-| `L-01`, `L-03`, `L-04` | nothing | correct: no predicate yet |
+| `L-01`, `L-04` | nothing | correct: no predicate yet |
 | `L-07.illegal` | `B-06` | no predicate yet; hinge halves also read as unconnected |
 | `T-08.illegal` | `B-06` | no predicate yet — but see below |
 
@@ -54,3 +54,12 @@ on the same physical fact is the strongest evidence either of them is right.
 Six exemplars trip `B-06` alongside their own rule. In every case it is correct: an
 off-lattice, off-detent, or tile-separated part really is unattached. Fixtures must
 therefore assert on their own rule id, never on the total finding count.
+
+## Removed exemplars
+
+`L-03.{legal,illegal}.ldr` were deleted on 2026-08-22 along with the rule.
+L-03 (`MULTI_STUD_INTO_TECHNIC_HOLES`, "never more than one stud into Technic
+holes") was a misreading of its source: the source warns that System and Technic
+do not share an edge datum, so System studs driven into Technic holes do not line
+up. That is a flat incompatibility, not a budget of one stud. `B-01` already
+states the ban flatly and is the rule to keep.
