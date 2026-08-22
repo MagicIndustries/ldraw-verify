@@ -232,7 +232,17 @@ function seamsOf(bricks: Brick[]): Map<number, [number, number]> {
 }
 
 /**
- * B-07 / MASONRY_BOND.
+ * B-07 / BDP_STABILITY_OVERLAP.
+ *
+ * Advisory. The source -- the BrickLink Designer Program's Stability guidance
+ * -- says bricks and plates "should overlap whenever possible", conceding in
+ * the same sentence that building in stacks may have visual appeal. That is a
+ * recommendation with an escape clause, so a repeated seam is reported, not
+ * gated: a stacked seam makes a wall weaker, never unbuildable. The rule is
+ * named for the source clause it implements rather than for masonry, because
+ * the source's other stability sentences -- drooping walls, normal building
+ * pressure -- are judgement, and a name like MASONRY_BOND reads as a
+ * standalone law rather than one checkable fragment of a broader guideline.
  *
  * A wall built so that the joints between bricks line up from course to
  * course is a stack of independent columns: nothing ties one column to the
