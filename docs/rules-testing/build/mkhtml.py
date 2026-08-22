@@ -18,6 +18,9 @@ BANDS=[("tiny","Tiny","under 50 parts","Single-block files with no <code>0 FILE<
 
 def rulecard(r):
     st={"HARD":"hard","DISCOURAGED":"disc","LEGAL":"legal","STYLE":"legal"}.get(r["tier"],"legal")
+    kind=r.get("kind","constraint")
+    tierpill=f'<span class="pill {st}">{r["tier"].lower()}</span>' if r["tier"] else ""
+    kindpill="" if kind=="constraint" else f'<span class="pill kind">{kind}</span>' 
     src={"P1":"first-party","P2":"designer quote","S":"derived","F":"folklore"}.get(r["src"],r["src"])
     ex=""
     if r["imgs"]:
@@ -65,7 +68,7 @@ def rulecard(r):
     status='<span class="pill done">implemented</span>' if r["impl"] else ""
     return f"""<article class="rule" id="rule-{r['id']}">
   <div class="rhead"><code class="rid">{r['id']}</code><h3>{html.escape(r['name'])}</h3>
-    <span class="pill {st}">{r['tier'].lower()}</span><span class="pill dom dom-{r.get('domain','physical')}">{r.get('domain','physical')}</span>{status}
+    {tierpill}<span class="pill dom dom-{r.get('domain','physical')}">{r.get('domain','physical')}</span>{kindpill}{status}
     <span class="srcs">{html.escape(src)}</span></div>
   <p class="rstmt">{html.escape(r['stmt'])}</p>
   {note}
@@ -78,15 +81,15 @@ _by=lambda pred:"".join(rulecard(r) for r in RD if pred(r))
 RULES_IMPL=_by(lambda r:r["impl"])
 RULES_READY=_by(lambda r:not r["impl"] and r["tier"] in ("HARD","DISCOURAGED") and not r["nopic"])
 RULES_BLOCK=_by(lambda r:not r["impl"] and r["tier"] in ("HARD","DISCOURAGED") and r["nopic"])
-RULES_LEGAL=_by(lambda r:r["tier"] in ("LEGAL","STYLE"))
+RULES_LEGAL=_by(lambda r:r.get("kind") in ("permission","reference") or r["tier"] in ("LEGAL","STYLE"))
 NIMPL=sum(1 for r in RD if r["impl"])
 NREADY=sum(1 for r in RD if not r["impl"] and r["tier"] in ("HARD","DISCOURAGED") and not r["nopic"])
 NBLOCK=sum(1 for r in RD if not r["impl"] and r["tier"] in ("HARD","DISCOURAGED") and r["nopic"])
-NLEGAL=sum(1 for r in RD if r["tier"] in ("LEGAL","STYLE"))
+NLEGAL=sum(1 for r in RD if r.get("kind") in ("permission","reference") or r["tier"] in ("LEGAL","STYLE"))
 NIMG=sum(1 for r in RD if r["imgs"])
 
 def rrow(r,extra=""):
-    st={"HARD":"hard","DISCOURAGED":"disc","LEGAL":"legal"}[r["tier"]]
+    st={"HARD":"hard","DISCOURAGED":"disc","LEGAL":"legal","STYLE":"legal","":"legal"}[r["tier"]]
     return f'<tr><td><code>{r["id"]}</code></td><td>{html.escape(r["name"])}</td><td><span class="pill {st}">{r["tier"].lower()}</span></td><td>{extra}</td></tr>'
 
 CANON_READY="".join(rrow(r) for r in INV["rules"]["ready"])
@@ -304,6 +307,7 @@ td{{font-variant-numeric:tabular-nums}}
   padding:3px 5px;border-radius:3px;background:var(--chipbg,rgba(127,127,127,.1));color:var(--muted)}}
 .vchip.vok{{color:var(--ok,#3f9d63)}} .vchip.vwarn{{color:var(--excl)}}
 .vchip.vna{{opacity:.72;font-style:italic}}
+.pill.kind{{background:transparent;border:1px dashed currentColor;opacity:.7;font-weight:600;font-style:italic}}
 .pill.dom{{background:transparent;border:1px solid currentColor;opacity:.75;font-weight:600}}
 .pill.dom-physical{{color:var(--accent)}}
 .pill.dom-file{{color:var(--slate)}}
