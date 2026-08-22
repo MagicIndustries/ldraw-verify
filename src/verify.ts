@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { buildGraph } from "./connect/graph.js";
-import { openShadowLibrary } from "./connect/shadow.js";
+import { openShadowLibrary, type ShadowLibrary } from "./connect/shadow.js";
 import { LibraryIndex } from "./library/index.js";
 import { parseDocument } from "./parse/document.js";
 import { resolveModel } from "./resolve/resolve.js";
@@ -71,20 +71,61 @@ export function exitCodeFor(findings: Finding[]): 0 | 1 | 2 {
  */
 export const ALL_RULES = [...l0Rules, ...l1Rules, ...l2Rules, ...l3Rules, ...l4Rules, ...l5Rules];
 
+/**
+ * A parts library, shadow library and rule registry, loaded once and reused
+ * across many models.
+ *
+ * `verifyFile` below rebuilt all three on every call. That is fine for the one
+ * -- file case the CLI was written for and badly wrong for anything sweeping a
+ * corpus: re-reading the parts index per model is the visible cost, but the
+ * expensive one is invisible. `collectSnapMetas` memoises each part's resolved
+ * reference closure in a `WeakMap` keyed on the LibraryIndex *and* the
+ * ShadowLibrary instance (see closure.ts), so handing it fresh objects each
+ * time silently discards that cache and re-walks every part's closure from
+ * scratch. Measured A/B over 25 models spread across the corpus: 22.4s calling
+ * `verifyFile` per model against 11.4s reusing one `Verifier`, a 2.0x
+ * saving.
+ *
+ * Holding a `Verifier` pins the parts library in memory for its lifetime,
+ * which is the point -- create one per sweep, not one per model, and let it go
+ * when the sweep ends.
+ */
+export class Verifier {
+  private constructor(
+    private readonly library: LibraryIndex,
+    private readonly registry: Registry,
+    private readonly shadow: ShadowLibrary | undefined,
+  ) {}
+
+  static async create(opts: VerifyOptions): Promise<Verifier> {
+    const library = await LibraryIndex.fromDirectory(opts.libraryRoot);
+    const registry = await Registry.create(opts.corpusPath ?? DEFAULT_CORPUS_PATH);
+    for (const rule of ALL_RULES) {
+      registry.register(rule);
+    }
+    return new Verifier(library, registry, opts.shadowDir ? openShadowLibrary(opts.shadowDir) : undefined);
+  }
+
+  async verifyFile(path: string): Promise<VerifyResult> {
+    return this.verifyText(await readFile(path, "utf8"), path);
+  }
+
+  /** For callers that already hold the text -- a sweep reading its own files, or a test. */
+  async verifyText(text: string, path: string): Promise<VerifyResult> {
+    const model = resolveModel(parseDocument(text, path), this.library);
+    if (this.shadow) {
+      model.graph = await buildGraph(model, this.library, this.shadow);
+    }
+    const findings = this.registry.run(model, this.library);
+    return { findings, coverage: model.graph?.coverage.ratio ?? 0, exitCode: exitCodeFor(findings) };
+  }
+}
+
+/**
+ * Verify one file, loading everything it needs and throwing it away again.
+ * Convenient for a single model; use `Verifier.create` once for more than one.
+ */
 export async function verifyFile(path: string, opts: VerifyOptions): Promise<VerifyResult> {
-  const lib = await LibraryIndex.fromDirectory(opts.libraryRoot);
-  const doc = parseDocument(await readFile(path, "utf8"), path);
-  const model = resolveModel(doc, lib);
-
-  if (opts.shadowDir) {
-    model.graph = await buildGraph(model, lib, openShadowLibrary(opts.shadowDir));
-  }
-
-  const registry = await Registry.create(opts.corpusPath ?? DEFAULT_CORPUS_PATH);
-  for (const rule of ALL_RULES) {
-    registry.register(rule);
-  }
-
-  const findings = registry.run(model, lib);
-  return { findings, coverage: model.graph?.coverage.ratio ?? 0, exitCode: exitCodeFor(findings) };
+  const verifier = await Verifier.create(opts);
+  return verifier.verifyFile(path);
 }

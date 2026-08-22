@@ -162,4 +162,15 @@ export class LibraryIndex {
   get size(): number {
     return this.parts.size;
   }
+
+  /**
+   * Every indexed part, including primitives, subparts, aliases and hidden
+   * files -- callers that want only placeable parts filter on `isPrimitive`,
+   * `isAlias` and `isHidden`. Exposed for tools that derive data ACROSS the
+   * library (see scripts/build-part-properties.ts) rather than resolving one
+   * part at a time; the verifier itself only ever looks parts up by id.
+   */
+  all(): Iterable<LibraryPart> {
+    return this.parts.values();
+  }
 }
