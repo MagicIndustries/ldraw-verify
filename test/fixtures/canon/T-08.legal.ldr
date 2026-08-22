@@ -1,5 +1,9 @@
-0 T-08 LEGAL: brick on brick, the load path unbroken
+0 T-08 LEGAL: the same sandwich with both middle elements studded.
+0 Two 2x2 plates: every stud of the middle course grips the brick above, so the
+0 load path is continuous through the stack.
 0 Name: T-08.legal.ldr
 0 Author: ldraw-verify CANON
 1 7 0 0 0 1 0 0 0 1 0 0 0 1 3001.dat
-1 4 0 -24 0 1 0 0 0 1 0 0 0 1 3001.dat
+1 14 -20 -8 0 1 0 0 0 1 0 0 0 1 3022.dat
+1 14 20 -8 0 1 0 0 0 1 0 0 0 1 3022.dat
+1 4 0 -32 0 1 0 0 0 1 0 0 0 1 3001.dat

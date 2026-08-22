@@ -534,9 +534,18 @@ rules:
     kind: constraint
     domain: physical
     source_tier: P1
-    statement: "Every Technic pin must be seated in its detent."
+    statement: "The short end of a half pin may not be inserted into a Technic hole; one end of a full-length pin may."
+    note: >
+      RESTATED 2026-08-22. Previously "Every Technic pin must be seated in its
+      detent", which is a misreading. Berard's example is not about how far
+      along its axis a pin has been pushed: it contrasts the SHORT stub end of
+      a half pin (4274), which is too short to engage the bore and bears on
+      almost nothing, against one end of a full-length pin (3673), which is the
+      length the bore was cut for. The exemplar pair now shows exactly that --
+      viewed through the bore, the half pin leaves it empty while the full pin
+      fills it.
     check: transform
-    predicate: "discrete axial position"
+    predicate: "half-pin short end engaged in a Technic bore"
     parts: [3673, 4274, 2780]
     confidence: high
 
@@ -546,12 +555,22 @@ rules:
     kind: constraint
     domain: physical
     source_tier: P1
-    statement: "System side-studs and Technic holes are not co-planar."
+    statement: "A System side-stud may not be inserted into a Technic hole; the two families do not line up."
+    note: >
+      RESTATED 2026-08-22. Previously "System side-studs and Technic holes are
+      not co-planar", which states the underlying dimensional fact but not the
+      rule. The rule is the prohibition Berard draws from it: do not push the
+      side stud of a SNOT brick into the side bore of a Technic element,
+      because the two bricks cannot then both sit on the grid. The offset is
+      about 0.30 LDU in real plastic and LDraw does not model it, so the
+      illegal exemplar RENDERS as though it fitted -- which is precisely why
+      this rule has to be stated rather than seen, and why it is filed under
+      not_checkable for a verifier reading geometry alone: the 0.30 LDU error
+      is absent from LDraw entirely, so it is not geometrically detectable.
     check: part_identity
     predicate: "part-class co-occurrence"
     parts: [3700, 6541, 87087]
     confidence: high
-    note: "The 0.30 LDU error is absent from LDraw entirely. Not geometrically detectable."
 
   - id: L-06
     name: CONE_ON_PIN_NO_STOP

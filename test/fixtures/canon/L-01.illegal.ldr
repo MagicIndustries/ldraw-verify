@@ -1,5 +1,10 @@
-0 L-01 ILLEGAL: a System side-stud and a Technic hole are not at the same height
+0 L-01 ILLEGAL: a System side-stud pushed into a Technic hole.
+0 The 1x1 brick's side stud enters the Technic brick's bore, so the two bricks
+0 are asked to sit flush. They do not: the side-stud face and the bore are
+0 offset by about 0.30 LDU in real plastic. LDraw does not model that error, so
+0 this renders as if it fitted -- which is exactly why the rule has to be
+0 stated rather than seen.
 0 Name: L-01.illegal.ldr
 0 Author: ldraw-verify CANON
 1 7 0 0 0 1 0 0 0 1 0 0 0 1 3700.dat
-1 4 -10 -4 0 0.0 0 1.0 0 1 0 -1.0 0 0.0 87087.dat 
+1 4 0 0 20 1 0 0 0 1 0 0 0 1 87087.dat

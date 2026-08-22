@@ -1,5 +1,6 @@
-0 L-01 LEGAL: the side-stud used with a matched System connection
+0 L-01 LEGAL: the same side-stud brick carrying a System part instead.
+0 Stud to anti-stud, both System, no cross-family height to reconcile.
 0 Name: L-01.legal.ldr
 0 Author: ldraw-verify CANON
-1 4 -40 0 0 0.0 0 1.0 0 1 0 -1.0 0 0.0 87087.dat
-1 7 -40 -24 0 1 0 0 0 1 0 0 0 1 3005.dat
+1 7 0 0 0 1 0 0 0 1 0 0 0 1 87087.dat
+1 4 0 10 -14 1 0 0 0 0 -1 0 1 0 3024.dat
