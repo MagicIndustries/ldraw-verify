@@ -63,3 +63,16 @@ holes") was a misreading of its source: the source warns that System and Technic
 do not share an edge datum, so System studs driven into Technic holes do not line
 up. That is a flat incompatibility, not a budget of one stud. `B-01` already
 states the ban flatly and is the rule to keep.
+
+## When a legal twin is worth authoring
+
+A legal twin earns its place by being a *near* twin: the same parts with one
+thing changed, so the pair isolates the rule and nothing else. `B-01` puts the
+stud on a stud instead of in a bore; `L-04` uses a full pin instead of a half
+pin's short end in the same bore; `T-08` swaps one tile for a plate in the same
+sandwich; `B-07` staggers the seams of the same wall.
+
+`L-01` has no legal twin, on purpose. It forbids one specific connection -- a
+System side-stud into a Technic bore -- and there is no legal way to make that
+connection, so a "legal" version could only be some other arrangement of the
+two bricks, which isolates nothing. Prefer no twin to a meaningless one.

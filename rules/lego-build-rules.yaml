@@ -572,6 +572,15 @@ rules:
       this rule has to be stated rather than seen, and why it is filed under
       not_checkable for a verifier reading geometry alone: the 0.30 LDU error
       is absent from LDraw entirely, so it is not geometrically detectable.
+
+      NO LEGAL TWIN, deliberately. A legal twin earns its place by being a NEAR
+      twin -- the same parts with one thing changed, so the pair isolates the
+      rule (B-01 stud-on-stud against stud-in-bore; L-04 a full pin against a
+      half pin's short end in the same bore; T-08 a plate swapped for a tile in
+      the same sandwich). This rule forbids one specific connection and there
+      is no legal way to make it, so any "legal" arrangement of the two bricks
+      is simply a different build and isolates nothing. The twin that used to
+      sit here showed a plate merged into the brick and taught nothing.
     check: part_identity
     predicate: "part-class co-occurrence"
     parts: [3700, 6541, 87087]
