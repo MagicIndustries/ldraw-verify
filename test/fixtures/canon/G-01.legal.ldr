@@ -1,7 +1,8 @@
-0 G-01 LEGAL: a TILE in the identical geometry
+0 G-01 LEGAL: a TILE in the identical geometry.
+0 Same base, same channel, same edge-on orientation -- only the wedged element
+0 differs. A tile between two studs is explicitly permitted; the same position
+0 with a plate is L-10.
 0 Name: G-01.legal.ldr
 0 Author: ldraw-verify CANON
 1 7 0 0 0 1 0 0 0 1 0 0 0 1 3020.dat
-1 4 -10 -8 10 1 0 0 0 1 0 0 0 1 3024.dat 
-1 4 30 -8 10 1 0 0 0 1 0 0 0 1 3024.dat 
-1 14 0 -12 0 0 1 0 -1 0 0 0 0 1 3070b.dat
+1 14 -4 -10 0 0 1 0 -1 0 0 0 0 1 3070b.dat

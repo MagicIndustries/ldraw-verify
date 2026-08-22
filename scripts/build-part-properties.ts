@@ -38,6 +38,14 @@ interface PartProperties {
   bores: number[];
   /** True when some bore is open at both ends -- a through-hole, not a socket. */
   throughBore: boolean;
+  /**
+   * Distance in LDU from the part's stud plane (local y = 0, its top face) to
+   * its anti-stud plane -- its height. A plate is 8, a brick 24. Derived from
+   * the hotspots themselves rather than from a bounding box, so a decorated or
+   * irregular part still reports the height at which it stacks. Absent when
+   * the part has no anti-stud to measure to.
+   */
+  heightLdu?: number;
 }
 
 async function main(): Promise<void> {
@@ -58,6 +66,7 @@ async function main(): Promise<void> {
     let topStuds = 0;
     const bores = new Set<number>();
     let throughBore = false;
+    let antiStudY: number | undefined;
     try {
       const { metas } = await collectSnapMetas(p.id, lib, shadow);
       const hotspots = metasToHotspots(metas);
@@ -76,6 +85,16 @@ async function main(): Promise<void> {
         } else {
           bores.add(Math.round(h.radius * 10) / 10);
           if (h.caps === "none") throughBore = true;
+          // The underside anti-stud: a stud-radius female whose axis is the
+          // part's own -Y. Its local y IS the part's stacking height.
+          if (
+            Math.abs(h.radius - STUD_RADIUS) <= RADIUS_TOL &&
+            Math.abs(Math.abs(h.axis[1]) - 1) < 0.01 &&
+            h.pos[1] > 0 &&
+            (antiStudY === undefined || h.pos[1] < antiStudY)
+          ) {
+            antiStudY = h.pos[1];
+          }
         }
       }
     } catch {
@@ -92,6 +111,7 @@ async function main(): Promise<void> {
         topStuds,
         bores: [...bores].sort((a, b) => a - b),
         throughBore,
+        ...(antiStudY !== undefined ? { heightLdu: Math.round(antiStudY * 10) / 10 } : {}),
       };
     }
     if (++done % 2000 === 0) console.log(`  ...${done}/${placeable.length}`);

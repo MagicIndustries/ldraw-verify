@@ -358,3 +358,64 @@ describe("B-01 no stud in a Technic pinhole", () => {
     expect(byId("B-01").run({ model, library: lib, meta: meta("B-01") })).toHaveLength(0);
   });
 });
+
+describe("L-10 plate wedged between studs", () => {
+  const rule = byId("L-10");
+
+  /**
+   * A 3020 (Plate 2x4) lying flat with its studs at y=0, and one part stood on
+   * edge in the 8 LDU channel between the stud rows at x=-10 and x=+10.
+   * `edges` and `undecidable` model whether the wedged part is connected and
+   * whether its connectivity is known -- the two guards this rule turns on.
+   */
+  function fire(wedgedPart: string, opts: { connected?: boolean; undecidable?: boolean } = {}) {
+    const text = [
+      "1 7 0 0 0 1 0 0 0 1 0 0 0 1 3020.dat",
+      `1 14 -4 -10 0 0 1 0 -1 0 0 0 0 1 ${wedgedPart}`,
+    ].join("\n");
+    const model = resolveModel(parseDocument(text, "t.ldr"), lib);
+    model.graph = {
+      ...emptyGraph(2),
+      studFootprints: new Map([[0, { y: 0, minX: -30, maxX: 30, minZ: -10, maxZ: 10, count: 8 }]]),
+      ...(opts.connected
+        ? { edges: [{ a: 0, b: 1, female: 1, male: 0, kind: "SNAP_CYL", at: [0, 0, 0] as [number, number, number] }] }
+        : {}),
+      ...(opts.undecidable ? { incompleteDataPlacements: [1] } : {}),
+    };
+    return rule.run({ model, library: lib, meta: meta("L-10") });
+  }
+
+  it("fails a plate wedged edge-on in the gap", () => {
+    const f = fire("3024.dat");
+    expect(f).toHaveLength(1);
+    expect(f[0]!.status).toBe("fail");
+  });
+
+  // G-01: the identical geometry with a tile is explicitly legal, and the only
+  // difference the rule may key on is whether the part presents studs.
+  it("passes a tile in exactly the same position", () => {
+    expect(fire("3070b.dat")).toHaveLength(0);
+  });
+
+  // A plate on edge that is properly connected is ordinary SNOT, not a wedge.
+  // Without this the rule fired on 30.3% of real sets.
+  it("passes an edge-on plate that is connected to something", () => {
+    expect(fire("3024.dat", { connected: true })).toHaveLength(0);
+  });
+
+  // "Unconnected" and "we could not tell" are different claims and only the
+  // first means wedged. 3 of the rule's first 6 corpus findings were parts
+  // whose connectivity data was simply missing.
+  it("passes a part whose connectivity could not be determined", () => {
+    expect(fire("3024.dat", { undecidable: true })).toHaveLength(0);
+  });
+
+  it("passes a brick, which cannot fit an 8 LDU gap", () => {
+    expect(fire("3005.dat")).toHaveLength(0);
+  });
+
+  it("returns unknown without stud footprints", () => {
+    const model = resolveModel(parseDocument("1 4 0 0 0 1 0 0 0 1 0 0 0 1 3024.dat", "t.ldr"), lib);
+    expect(rule.run({ model, library: lib, meta: meta("L-10") })[0]!.status).toBe("unknown");
+  });
+});

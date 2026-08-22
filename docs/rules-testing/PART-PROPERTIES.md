@@ -17,6 +17,7 @@ caller already holds.
 | field | meaning |
 |---|---|
 | `topStuds` | male System studs — round, 6 LDU, 4 tall, non-sliding |
+| `heightLdu` | stud plane to anti-stud plane — a plate is 8, a brick 24 |
 | `bores` | distinct female bore radii, ascending |
 | `throughBore` | some bore is open at both ends rather than blind |
 | `desc`, `category` | the part's description and its first word |
@@ -44,8 +45,8 @@ data states directly.
 
 | rule | needs | status |
 |---|---|---|
-| `L-10` PLATE_BETWEEN_STUDS | tile vs plate | **unblocked** — `topStuds` |
-| `G-01` TILE_BETWEEN_STUDS | tile vs plate | **unblocked** (its contrast case) |
+| `L-10` PLATE_BETWEEN_STUDS | tile vs plate | **implemented** — `topStuds` + `heightLdu` |
+| `G-01` TILE_BETWEEN_STUDS | tile vs plate | **covered** as L-10's negative case |
 | `L-05` PIN_INTO_UNDERSIZED_BORE | bore classes | **unblocked** — `bores` |
 | `L-01` SYSTEM_TECHNIC_HEIGHT_MISMATCH | part classes | partial — but see its note; the 0.30 LDU error is absent from LDraw, so the rule stays not-checkable regardless |
 | `L-06` CONE_ON_PIN_NO_STOP | travel stops | **still blocked** |
@@ -77,3 +78,23 @@ Takes about seven minutes: it walks the reference closure of every placeable
 part. The shadow library is CC BY-SA 4.0 and is never vendored — the script
 refuses to run without `LDCAD_SHADOW_DIR` rather than silently emitting a table
 with no connectivity in it.
+
+## What implementing L-10 against it taught
+
+The table supplied the part class cleanly, and the part class turned out to be
+the easy half. A first predicate using only "is it a plate, is it on edge, are
+there studs either side" fired on **30.3% of real sets** — it matched every
+legitimately mounted SNOT plate in the corpus. Two further constraints brought
+it to 0.4%:
+
+- **A wedge is held by friction, so it has no stud connection.** Anything with
+  an edge in the connection graph is mounted, not wedged. This did nearly all
+  the work.
+- **"Unconnected" and "undecidable" are different claims.** Three of the first
+  six surviving findings were placements whose connectivity data was simply
+  missing, where absence of edges means absence of *knowledge*. Skipping those
+  halved the remainder.
+
+Worth carrying to the next rule built on this table: a part-property lookup
+tells you *what a part is*, never *what is being done with it*. The second
+question is where the false positives live.

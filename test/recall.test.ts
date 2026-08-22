@@ -190,14 +190,21 @@ describe.skipIf(!shadowDir).each(GRAPH_CASES)("$rule (connectivity)", ({ rule, t
   );
 });
 
-// Pending: L-10 (plate wedged between studs) vs G-01 (tile, legal). These are
-// geometrically identical in LDraw and differ only by part class, so the pair
-// is recorded here as the acceptance test for L-10 whenever it gains a
-// predicate. See Task 12's scope note and the self-review notes in
-// task-15-brief.md. L-10 is still `unimplemented` (no rule module registers
-// it) as of this task -- see the "unimplemented rule acceptance tests" block
-// below for its sibling pending markers.
-describe.todo("L-10 vs G-01 part-class discrimination");
+// L-10 (plate wedged between studs) against G-01 (tile in the identical
+// position, legal). The two fixtures differ in exactly one line -- the wedged
+// element -- so this pair tests the part-class discrimination and nothing
+// else. It was `describe.todo` until L-10 gained a predicate.
+describe("L-10 vs G-01 part-class discrimination", () => {
+  it("fires on the plate", async () => {
+    const r = await verifyFile("test/fixtures/canon/L-10.illegal.ldr", { ...OPTS, shadowDir: shadowDir! });
+    expect(r.findings.some((f) => f.ruleId === "L-10" && f.status === "fail")).toBe(true);
+  }, 60_000);
+
+  it("stays silent on the tile in the same position", async () => {
+    const r = await verifyFile("test/fixtures/canon/G-01.legal.ldr", { ...OPTS, shadowDir: shadowDir! });
+    expect(r.findings.some((f) => f.ruleId === "L-10" && f.status === "fail")).toBe(false);
+  }, 60_000);
+});
 
 /**
  * Pending acceptance tests for every other corpus rule that is HARD or
@@ -219,8 +226,8 @@ describe.todo("L-10 vs G-01 part-class discrimination");
  * list was hiding. D-04 is DISCOURAGED with check:none and is included.
  *
  * The count this block must match: 31 corpus rules are HARD or DISCOURAGED
- * with no registered predicate; L-10 has its own `describe.todo` marker
- * above (paired with G-01), so 30 belong here. Both numbers are asserted
+ * with no registered predicate; all of them belong here now that L-10 has
+ * a predicate of its own. Both numbers are asserted
  * mechanically by "the pending inventory is complete" below, so this
  * comment cannot drift out of date without a test failing.
  */
@@ -333,8 +340,7 @@ describe("pending-rule inventory", () => {
     const source = await readFile(new URL(import.meta.url), "utf8");
     const unnamed = pending.filter((id) => !source.includes(id));
     expect(unnamed).toEqual([]);
-    // 27 pending in the corpus; L-10 is named by its own describe.todo
-    // (paired with G-01), the other 26 by the block above. Was 31 before L-03
+    // 26 pending in the corpus, all named by the block above. Was 31 before L-03
     // was removed as a misreading, 30 before B-07 gained a predicate, and 29
     // before the 2026-08-22 tier audit took L-12 to STYLE (its statement names
     // no condition) and T-05 to kind:reference (a fact about part geometry
@@ -344,6 +350,6 @@ describe("pending-rule inventory", () => {
     // "min overlap 2 studs" clause is unchecked. It is off this list because
     // the rule now renders a verdict, not because the statement is fully
     // covered -- see the rule's doc comment in src/rules/l3-grid.ts.
-    expect(pending).toHaveLength(27);
+    expect(pending).toHaveLength(26);
   });
 });

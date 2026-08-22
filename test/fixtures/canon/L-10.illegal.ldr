@@ -1,7 +1,9 @@
-0 L-10 ILLEGAL: a PLATE wedged edge-on between two studs
+0 L-10 ILLEGAL: a PLATE wedged edge-on into the channel between two stud rows.
+0 The 8 LDU clear gap between adjacent studs is exactly a plate's thickness, so
+0 it goes in -- and grips on its two smooth faces against the stud walls, a
+0 friction fit the System does not intend. Contrast G-01: identical geometry
+0 with a tile, which is legal.
 0 Name: L-10.illegal.ldr
 0 Author: ldraw-verify CANON
 1 7 0 0 0 1 0 0 0 1 0 0 0 1 3020.dat
-1 4 -10 -8 10 1 0 0 0 1 0 0 0 1 3024.dat 
-1 4 30 -8 10 1 0 0 0 1 0 0 0 1 3024.dat 
-1 14 0 -12 0 0 1 0 -1 0 0 0 0 1 3024.dat
+1 14 -4 -10 0 0 1 0 -1 0 0 0 0 1 3024.dat
