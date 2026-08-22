@@ -169,6 +169,181 @@ function vec3(nums: number[]): Vec3 {
 }
 
 /**
+ * `secs=` shape letter of a ROUND cross-section -- the one section shape
+ * with continuous rotational symmetry about its own axis.
+ *
+ * The other shapes the real library uses are not symmetric and each carries
+ * its own 90-degree detent: `S` (square) is the anti-stud cavity of a
+ * rectangular plate/brick (3024.dat, a 1x1 plate, reports `S 6 4`; 3005.dat,
+ * a 1x1 brick, `S 6 20`), and `A` is an axle cross (2819.dat's steering-wheel
+ * axle hole, `A 6 14`). Both mate in exactly four orientations, so "which way
+ * is it turned" remains a meaningful, 90-degree-quantised question for a part
+ * carrying one -- see `rotationallySymmetricAxis`.
+ *
+ * Defined here, next to the `secs=` parser that produces the letter, and
+ * imported by `connect/graph.ts` rather than re-declared there: the same
+ * "is this section round" question asked in two places under two private
+ * constants is the drift this branch already reconciled once for the
+ * matrix tolerances.
+ */
+export const ROUND_SECTION = "R";
+
+/**
+ * Tolerance on `1 - |cos(angle)|` between two of ONE PART's own connector
+ * axes, expressed in that part's own frame, for them to count as the same
+ * axis.
+ *
+ * Deliberately tight, and deliberately not the same quantity as
+ * `HOTSPOT_AXIS_COS_TOL` in connect/graph.ts: that one compares two
+ * DIFFERENT parts' world-space axes across a placement pairing, where real
+ * authored matrices contribute rounding, and so it runs at 0.1. This one
+ * compares directions that are written literally in one shadow file's own
+ * `pos=`/`ori=` attributes (or are the identity), where agreement is exact
+ * and anything this tolerance has to absorb is float noise from composing
+ * the part's own closure.
+ */
+const COAXIAL_COS_TOL = 1e-3;
+
+/**
+ * Maximum perpendicular distance (LDU) a connector may sit from the
+ * candidate symmetry axis and still count as being ON it.
+ *
+ * A physical length, not a matrix tolerance. Shadow-library `pos=` values
+ * for on-axis connectors are written as exact zeros, so this only has to
+ * absorb float error from the closure walk's matrix composition; the
+ * smallest genuinely off-axis connector offset in the real library is
+ * whole LDU (30383.dat's two anti-studs sit +-10 LDU off centre), two
+ * orders of magnitude clear of this.
+ */
+const COAXIAL_OFFSET_TOL = 0.1;
+
+function norm(v: Vec3): number {
+  return Math.hypot(v[0], v[1], v[2]);
+}
+
+function unit(v: Vec3): Vec3 | undefined {
+  const n = norm(v);
+  // A hotspot axis can arrive scaled rather than unit-length when it came
+  // through a scaled subfile reference (see `unreliableAxisPlacements` in
+  // connect/graph.ts, and 2819.dat, whose axle-hole axis reads `0 -12 0`).
+  // Direction is all that is wanted here, so normalise; a genuinely zero
+  // axis carries no direction at all and is reported as such.
+  if (n < 1e-9) return undefined;
+  return [v[0] / n, v[1] / n, v[2] / n];
+}
+
+function sameAxis(a: Vec3, b: Vec3): boolean {
+  // Anti-parallel counts: a stud pointing up and an anti-stud pointing
+  // down lie on one axis. This is a direction test, not an orientation one.
+  return 1 - Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) <= COAXIAL_COS_TOL;
+}
+
+/**
+ * The axis about which this part's whole connection geometry is invariant,
+ * or `undefined` if it has none.
+ *
+ * A part qualifies when every one of its connectors is (a) round in
+ * cross-section, so it has no detent of its own, (b) aimed along one
+ * common direction, and (c) positioned ON that one line. Turn such a part
+ * about that line and every connector lands exactly where it already was:
+ * there is no measurement, connectivity or otherwise, that distinguishes
+ * the turned part from the untuned one. A round 1x1 plate (6141.dat: one
+ * centred `R 6 4` stud, one centred `R 6 5` anti-stud, plus two centred
+ * round bounding cylinders) is the canonical case; so are minifig heads
+ * (3626*.dat), 1x1 cones and dishes (4740, 43898), plant stems (3742), and
+ * a Technic pin (4274.dat, whose four connectors all sit on its own shaft
+ * axis).
+ *
+ * The three conditions are each load-bearing, and (a) is what keeps this
+ * from swallowing the rule it serves. A square 1x1 plate has exactly the
+ * same connector POSITIONS as a round one -- one centred stud, one centred
+ * anti-stud -- and is told apart only by its anti-stud's `S` section
+ * (3024.dat `S 6 4` vs 6141.dat `R 6 5`). Dropping (a) would exempt every
+ * 1x1 plate, tile and brick in the library, which is precisely the class
+ * B-05 exists to catch. See `ROUND_SECTION` for the other non-round shape.
+ *
+ * The line does NOT have to pass through the part's origin. Rotating about
+ * a line parallel to, but offset from, the origin differs from rotating
+ * about the origin only by a translation, and the placement's own position
+ * absorbs that: for any rotation R with R*d == A*d for some axis-aligned A,
+ * the two placements (pos, R) and (pos + R*p0 - A*p0, A) put every hotspot
+ * at exactly the same point. So "offset from the origin" never makes the
+ * symmetry claim weaker.
+ *
+ * A part with no connectors at all is NOT symmetric here: nothing has been
+ * established about it, and returning an axis would state a fact the data
+ * does not support.
+ */
+export function rotationallySymmetricAxis(hotspots: Hotspot[]): Vec3 | undefined {
+  if (hotspots.length === 0) return undefined;
+  let axis: Vec3 | undefined;
+  for (const h of hotspots) {
+    if (h.sectionType !== ROUND_SECTION) return undefined;
+    const a = unit(h.axis);
+    if (!a) return undefined;
+    if (!axis) axis = a;
+    else if (!sameAxis(axis, a)) return undefined;
+  }
+  if (!axis) return undefined;
+  const origin = hotspots[0]!.pos;
+  for (const h of hotspots) {
+    const d: Vec3 = [h.pos[0] - origin[0], h.pos[1] - origin[1], h.pos[2] - origin[2]];
+    const along = d[0] * axis[0] + d[1] * axis[1] + d[2] * axis[2];
+    const perp: Vec3 = [d[0] - along * axis[0], d[1] - along * axis[1], d[2] - along * axis[2]];
+    if (norm(perp) > COAXIAL_OFFSET_TOL) return undefined;
+  }
+  return axis;
+}
+
+/**
+ * The part's own axes about which a connector it carries permits FREE
+ * rotation -- i.e. axes along which the part can legitimately be turned to
+ * any angle at all, because a joint, not the stud grid, sets its angle.
+ *
+ * Three connector families qualify, all read off data the shadow library
+ * already publishes rather than from a part list:
+ *
+ * - `SNAP_FGR`, a hinge finger. Rotation about the finger axis is the
+ *   entire purpose of the connector; it has no detent (2433.dat, "Hinge Bar
+ *   2 with 3 Fingers and Top Stud", and 30383.dat, a locking hinge plate).
+ * - `SNAP_SPH`, a ball joint. A ball is free about every axis, so crediting
+ *   only its own is a deliberate under-claim -- never an over-claim.
+ * - `SNAP_CYL` with `[slide=true]` AND a round section: a round shaft in a
+ *   round hole, or a bar in a clip. Earlier work established `slide=true`
+ *   as "this connector mates anywhere ALONG its axis" (see `Hotspot.slide`
+ *   and B-01); free rotation ABOUT that axis is the same physical fact
+ *   seen from the other side, and LDCad's own wording for the flag is
+ *   "slides/rotates along its axis inside its mate". The round-section
+ *   requirement is what keeps a Technic AXLE out: an axle also carries
+ *   `slide=true` (6587.dat, `A 6 58`) but an axle cross seats in exactly
+ *   four orientations, so it slides freely while remaining detented in
+ *   rotation.
+ *
+ * Presence on the part, not participation in an `Edge`, is what this
+ * reports, and that is deliberate. Pairing cannot see these connections:
+ * a `slide=true` connector mates anywhere along its axis while pairing
+ * only matches coincident positions (the reason `incompleteDataPlacements`
+ * exists at all), and measured against the real OMR corpus the hinge
+ * fingers of both 2433.dat and 30383.dat produce no edge whatsoever in
+ * models that unambiguously use them as hinges. Gating this on an edge
+ * would therefore make the exemption depend on exactly the pairing this
+ * tool documents as unreliable for exactly these connector kinds.
+ */
+export function freeRotationAxes(hotspots: Hotspot[]): Vec3[] {
+  const out: Vec3[] = [];
+  for (const h of hotspots) {
+    const free =
+      h.kind === "SNAP_FGR" ||
+      h.kind === "SNAP_SPH" ||
+      (h.kind === "SNAP_CYL" && h.slide === true && h.sectionType === ROUND_SECTION);
+    if (!free) continue;
+    const a = unit(h.axis);
+    if (a) out.push(a);
+  }
+  return out;
+}
+
+/**
  * Turn a part's collected snap metas (already transformed into the part's
  * own root frame by `collectSnapMetas`) into concrete hotspots, expanding
  * any `grid=` attribute into one hotspot per cell.

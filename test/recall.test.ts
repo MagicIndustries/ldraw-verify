@@ -131,14 +131,20 @@ const GRAPH_CASES: Case[] = [
   // top-of-brick stacking.
   { rule: "B-01", tier: "HARD", illegal: "b01-stud-in-pinhole.ldr", legal: "b01-stud-on-antistud.ldr" },
   // The same single-stud part (3024.dat) at a 45-degree yaw vs axis-aligned.
-  // Tier assertion updated deliberately, HARD -> DISCOURAGED: B-05 was
-  // demoted in the final fix wave on the corpus's own tier definitions
-  // (turning a part on its stud stresses nothing, which is what HARD
-  // means; it is out-of-system, which is what DISCOURAGED means). The
-  // fail/not-fail assertions are unchanged -- the predicate still fires on
-  // the 45-degree fixture and stays silent on its axis-aligned twin. See
-  // B-05's note in rules/lego-build-rules.yaml.
-  { rule: "B-05", tier: "DISCOURAGED", illegal: "b05-fractional-rotation.ldr", legal: "b05-axis-aligned.ldr" },
+  // Tier assertion updated deliberately a SECOND time, DISCOURAGED -> HARD.
+  // The demotion recorded here was withdrawn once the ~46%-of-real-sets
+  // firing rate that motivated it was traced to a scope defect -- the rule
+  // was judging yaw on parts for which yaw is unmeasurable or physically
+  // free -- and fixed there instead. The fail/not-fail assertions are again
+  // unchanged. See B-05's SCOPE FIX note in rules/lego-build-rules.yaml.
+  //
+  // This fixture is load-bearing for that fix rather than merely surviving
+  // it: 3024.dat is a SQUARE 1x1 plate, whose connectors sit in exactly the
+  // same two places as a round 1x1 plate's and which is told apart from one
+  // only by its `S`-section anti-stud cavity. A symmetry exemption written
+  // on connector POSITIONS alone would swallow this case and this pair
+  // would go quiet.
+  { rule: "B-05", tier: "HARD", illegal: "b05-fractional-rotation.ldr", legal: "b05-axis-aligned.ldr" },
   // Two 3001.dat bricks placed 1000 LDU apart (no shared hotspot, two
   // components) vs the same two bricks stacked at the real 24 LDU
   // brick-height offset golden.test.ts already established mates into one

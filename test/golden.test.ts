@@ -6,6 +6,8 @@ import { openShadowLibrary, type ShadowLibrary } from "../src/connect/shadow.js"
 import { LibraryIndex } from "../src/library/index.js";
 import { parseDocument } from "../src/parse/document.js";
 import { resolveModel } from "../src/resolve/resolve.js";
+import { l5Rules } from "../src/rules/l5-legality.js";
+import type { RuleMeta } from "../src/rules/types.js";
 
 // These golden facts were independently established by inspecting the real
 // LDraw parts library and LDCad shadow library (see task-10-report.md).
@@ -68,6 +70,77 @@ describe.skipIf(!shadowDir)("golden facts", () => {
       const g = await buildGraph(resolveModel(doc, lib), lib, sh);
       expect(g.edges.length).toBeGreaterThan(0);
       expect(g.components).toBe(1);
+    },
+    30_000,
+  );
+
+  // ------------------------------------------------------------------
+  // B-05 scope, against the real shadow library rather than hand-written
+  // metas (test/hotspots.test.ts covers the derivation itself). Every
+  // matrix below is copied verbatim off a line of the real OMR model
+  // 7903-1.mpd, whose nose section the author wrote inline at ~40 degrees:
+  // this is the exact corpus placement the verification pass judged, so a
+  // regression here is a regression against measured ground truth.
+  // ------------------------------------------------------------------
+  const b05Meta: RuleMeta = { id: "B-05", name: "NO_FRACTIONAL_ROTATION", tier: "HARD", statement: "" };
+  const b05 = l5Rules.find((r) => r.id === "B-05")!;
+
+  const runB05 = async (line: string) => {
+    const model = resolveModel(parseDocument(line, "tilt.ldr"), lib);
+    model.graph = await buildGraph(model, lib, sh);
+    return b05.run({ model, library: lib, meta: b05Meta });
+  };
+
+  it(
+    "still fails 3040b.dat at the ~40-degree tilt it carries in 7903-1.mpd",
+    async () => {
+      const f = await runB05(
+        "1 15 -30 -57.772 78.697 1 0 0 0 0.764921 -0.644124 0 0.644124 0.764921 3040b.dat",
+      );
+      expect(f).toHaveLength(1);
+      expect(f[0]!.status).toBe("fail");
+    },
+    30_000,
+  );
+
+  it(
+    "still fails 6091.dat at the ~40-degree tilt it carries in 7903-1.mpd",
+    async () => {
+      const f = await runB05(
+        "1 4 -30 -76.774 88.844 -1 0 0 0 0.764921 0.644124 0 0.644124 -0.764921 6091.dat",
+      );
+      expect(f).toHaveLength(1);
+      expect(f[0]!.status).toBe("fail");
+    },
+    30_000,
+  );
+
+  // 6141.dat sits on the same lines of the same model at the same
+  // rotation, and is the part the verification pass counted as this
+  // rule's single largest false positive. Its connectors are all round
+  // and all on its one axis, so it is out of scope -- see B-05's doc
+  // comment for why the tilt does not bring it back in while 3040b's does.
+  it(
+    "makes no claim about 6141.dat at that same tilt",
+    async () => {
+      const f = await runB05(
+        "1 71 -30 -58.415 104.301 -1 0 0 0 0.764921 0.644124 0 0.644124 -0.764921 6141.dat",
+      );
+      expect(f).toHaveLength(0);
+    },
+    30_000,
+  );
+
+  // The guard that keeps the symmetry exemption from swallowing the rule:
+  // 3024.dat is a square 1x1 plate, connectors in the same two places as
+  // 6141.dat, and 45 degrees of yaw on it is exactly what B-05 is for.
+  it(
+    "still fails a square 1x1 plate (3024.dat) at 45 degrees of yaw",
+    async () => {
+      const c = Math.SQRT1_2;
+      const f = await runB05(`1 4 0 -24 0 ${c} 0 ${c} 0 1 0 ${-c} 0 ${c} 3024.dat`);
+      expect(f).toHaveLength(1);
+      expect(f[0]!.status).toBe("fail");
     },
     30_000,
   );

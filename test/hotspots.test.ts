@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { expandGrid, metasToHotspots } from "../src/connect/hotspots.js";
+import {
+  expandGrid,
+  freeRotationAxes,
+  metasToHotspots,
+  rotationallySymmetricAxis,
+} from "../src/connect/hotspots.js";
 import { parseSnapMetas } from "../src/connect/shadow.js";
 import { fromLdraw, IDENTITY4 } from "../src/resolve/matrix.js";
 
@@ -144,5 +149,113 @@ describe("metasToHotspots", () => {
     expect(hs).toHaveLength(1);
     expect(hs[0]!.gender).toBe("male");
     expect(hs[0]!.kind).toBe("SNAP_CLP");
+  });
+});
+
+// ---------------------------------------------------------------------
+// B-05 scope derivation. These two functions are the whole of the
+// "which parts is a yaw claim meaningful for" question -- see
+// `noFractionalRotation` in src/rules/l5-legality.ts. Metas are written
+// here in the real shadow library's own syntax, quoting real parts, so
+// each case says which physical part it stands for.
+// ---------------------------------------------------------------------
+
+const meta = (type: string, attrs: Record<string, string>) => ({ meta: { type, attrs }, xform: IDENTITY4 });
+
+describe("rotationallySymmetricAxis", () => {
+  // 6141.dat, "Plate 1 x 1 Round": one centred round anti-stud, one
+  // centred round stud. Turning it about Y moves nothing.
+  it("finds the axis of a round 1x1 plate whose connectors are all round, coaxial and centred", () => {
+    const hs = metasToHotspots([
+      meta("SNAP_CYL", { gender: "F", caps: "one", secs: "R 6 5", pos: "0 8 0" }),
+      meta("SNAP_CYL", { gender: "M", caps: "one", secs: "R 6 4", pos: "0 0 0" }),
+    ]);
+    expect(rotationallySymmetricAxis(hs)).toEqual([0, -1, 0]);
+  });
+
+  // THE guard that keeps this exemption from swallowing B-05 itself.
+  // 3024.dat, "Plate 1 x 1", has its connectors in exactly the same two
+  // places as 6141.dat above and is distinguished only by the `S` section
+  // of its anti-stud cavity. A square plate turned 45 degrees is precisely
+  // the violation the rule exists to catch.
+  it("rejects a square 1x1 plate, whose connectors sit in the same places but whose anti-stud is S-section", () => {
+    const hs = metasToHotspots([
+      meta("SNAP_CYL", { gender: "F", caps: "one", secs: "S 6 4", pos: "0 8 0" }),
+      meta("SNAP_CYL", { gender: "M", caps: "one", secs: "R 6 4", pos: "0 0 0" }),
+    ]);
+    expect(rotationallySymmetricAxis(hs)).toBeUndefined();
+  });
+
+  // 2819.dat, "Technic Steering Wheel Small": round outside, but its
+  // mount is an axle hole, and an axle cross seats in four orientations.
+  it("rejects a part whose coaxial connector is an axle cross, which has its own 90-degree detent", () => {
+    const hs = metasToHotspots([
+      meta("SNAP_CYL", { gender: "F", caps: "none", secs: "A 6 14", pos: "0 24 0" }),
+      meta("SNAP_CYL", { gender: "M", caps: "one", secs: "R 6 4", pos: "0 0 0" }),
+    ]);
+    expect(rotationallySymmetricAxis(hs)).toBeUndefined();
+  });
+
+  // 30383.dat's two anti-studs sit +-10 LDU either side of centre: round
+  // sections would not save it, because turning the part moves them.
+  it("rejects a part with a round connector that is off the shared axis", () => {
+    const hs = metasToHotspots([
+      meta("SNAP_CYL", { gender: "F", caps: "one", secs: "R 6 4", pos: "-10 8 0" }),
+      meta("SNAP_CYL", { gender: "M", caps: "one", secs: "R 6 4", pos: "0 0 0" }),
+    ]);
+    expect(rotationallySymmetricAxis(hs)).toBeUndefined();
+  });
+
+  it("rejects a part whose connectors are centred but point along different axes", () => {
+    const hs = metasToHotspots([
+      meta("SNAP_CYL", { gender: "F", caps: "one", secs: "R 6 4", pos: "0 0 0", ori: "1 0 0 0 0 -1 0 1 0" }),
+      meta("SNAP_CYL", { gender: "M", caps: "one", secs: "R 6 4", pos: "0 0 0" }),
+    ]);
+    expect(rotationallySymmetricAxis(hs)).toBeUndefined();
+  });
+
+  // The line need not run through the part's own origin -- see the
+  // function's doc comment for why an offset line is no weaker a claim.
+  it("accepts a coaxial round part whose axis is offset from the part origin", () => {
+    const hs = metasToHotspots([
+      meta("SNAP_CYL", { gender: "F", caps: "one", secs: "R 6 4", pos: "20 8 0" }),
+      meta("SNAP_CYL", { gender: "M", caps: "one", secs: "R 6 4", pos: "20 0 0" }),
+    ]);
+    expect(rotationallySymmetricAxis(hs)).toEqual([0, -1, 0]);
+  });
+
+  it("claims nothing about a part with no connectors at all", () => {
+    expect(rotationallySymmetricAxis([])).toBeUndefined();
+  });
+});
+
+describe("freeRotationAxes", () => {
+  // 2433.dat, "Hinge Bar 2 with 3 Fingers and Top Stud".
+  it("reports a hinge finger's axis", () => {
+    const hs = metasToHotspots([meta("SNAP_FGR", { genderofs: "M", pos: "0 36 0", ori: "1 0 0 0 0 1 0 -1 0" })]);
+    expect(freeRotationAxes(hs)).toHaveLength(1);
+  });
+
+  it("reports a ball joint's axis", () => {
+    expect(freeRotationAxes(metasToHotspots([meta("SNAP_SPH", { gender: "M", pos: "0 0 0" })]))).toHaveLength(1);
+  });
+
+  // A bar in a clip, or a round shaft in a round hole: [slide=true] with a
+  // round profile. Free along the axis and free about it.
+  it("reports a round sliding shaft's axis", () => {
+    const hs = metasToHotspots([meta("SNAP_CYL", { gender: "M", caps: "one", secs: "R 4 14", slide: "true" })]);
+    expect(freeRotationAxes(hs)).toEqual([[0, -1, 0]]);
+  });
+
+  // 6587.dat, "Technic Axle 3 with Stud": slides freely, rotates in
+  // exactly four positions. `slide=true` alone would wrongly free it.
+  it("does not report a sliding AXLE, which seats in only four orientations", () => {
+    const hs = metasToHotspots([meta("SNAP_CYL", { gender: "M", caps: "none", secs: "A 6 58", slide: "true" })]);
+    expect(freeRotationAxes(hs)).toEqual([]);
+  });
+
+  it("does not report an ordinary, non-sliding stud", () => {
+    const hs = metasToHotspots([meta("SNAP_CYL", { gender: "M", caps: "one", secs: "R 6 4" })]);
+    expect(freeRotationAxes(hs)).toEqual([]);
   });
 });

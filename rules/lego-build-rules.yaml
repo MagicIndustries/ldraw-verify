@@ -178,7 +178,7 @@ rules:
 
   - id: B-05
     name: NO_FRACTIONAL_ROTATION
-    tier: DISCOURAGED
+    tier: HARD
     source_tier: P1
     statement: "Parts may not be positioned at sub-detent rotations."
     check: transform
@@ -237,6 +237,63 @@ rules:
       datum E-09 documents for part origins. NOT deleted and NOT weakened further:
       genuine off-detent rectangular tile/plate placements remain a real signal (3040b
       and 6091 in the same sample), and they stay reported, just not as a gate.
+      SCOPE FIX: DISCOURAGED -> HARD again. The demotion above was withdrawn, not
+      because the tier argument was wrong but because it was answering the wrong
+      question. A verification pass measured the residual it rested on: of 46
+      findings over 24 real models, 42 were rotationally-symmetric or hinge-mounted
+      parts and 4 were genuine (3040b x2, 6091 x2). That is a SCOPE defect -- the
+      rule was judging yaw on parts for which yaw is either unmeasurable or
+      physically free -- and demoting suppressed the 4 real violations along with
+      the 42 spurious ones. Fixed at the root instead, with two exclusions derived
+      from the shadow library's own connectivity data rather than the per-part
+      symmetry TABLE the paragraph above says this tool does not ship (it still does
+      not, and now does not need one):
+      (i) ROTATIONALLY SYMMETRIC PARTS ARE OUT OF SCOPE. A part every one of whose
+      connectors is round in cross-section, aimed along one common direction and
+      positioned ON that one line is invariant under rotation about it: turn it and
+      every connector lands where it already was. This rule's predicate is "yaw mod
+      90 == 0", and for such a part yaw is not a quantity, so the rule states
+      nothing about it at any rotation. Derived by `rotationallySymmetricAxis`
+      (src/connect/hotspots.ts) and exposed as
+      `ConnectionGraph.rotationallySymmetricParts`. It covers 6141, 33291, 3742,
+      4740, 43898, 3626*, 64644, 4274 and their kin WITHOUT naming any of them. The
+      round-section requirement is load-bearing, not decoration: 3024 (a square 1x1
+      plate) has its connectors in exactly the same two places as 6141 and is told
+      apart only by the `S` section of its anti-stud cavity vs 6141's `R`. Without
+      it this exemption would swallow every 1x1 plate, tile and brick in the
+      library -- the class the rule exists to catch.
+      (ii) A FREE-ROTATION CONNECTOR PERMITS ANY ANGLE ABOUT ITS OWN AXIS. A hinge
+      finger (SNAP_FGR), a ball joint (SNAP_SPH) or a ROUND `[slide=true]` shaft is
+      a joint, and a part hung on one sits at whatever angle the joint is set to.
+      `slide=true` was already established (B-01) as "mates anywhere ALONG this
+      axis"; free rotation ABOUT it is the same physical fact. The round-section
+      requirement excludes a Technic AXLE, which carries `slide=true` (6587: `A 6
+      58`) yet seats in exactly four orientations. Unlike (i) this is checked per
+      placement, because a hinge frees one axis and not the part: the placement is
+      exempt exactly when its own rotation carries that axis to a grid direction,
+      which is the necessary and sufficient condition for it to be a free turn on
+      top of an ordinary detent. Covers 2433; deliberately does NOT cover 30383's
+      45-degree yaw, whose hinge axis is horizontal and whose yaw therefore comes
+      from the studs it is seated in, not from its hinge.
+      MEASURED, 98-model sample (every 15th OMR file, the same sample the README
+      quotes): 420 -> 147 fail-findings, 45/98 -> 22/98 models (45.92% -> 22.45%).
+      3040b and 6091 still fail, verified end-to-end against the real shadow library
+      at the exact matrices they carry in 7903-1.mpd (test/golden.test.ts).
+      Per-model exit codes moved from 0:4.08% / 1:3.06% / 2:92.86% to 0:5.10% /
+      1:25.51% / 2:69.39% -- the old 3.06% exit-1 figure was produced BY the
+      demotion, and this is what it costs to state it without one.
+      RESIDUAL, reported rather than absorbed: 147 findings over 22 models, no
+      longer dominated by parts with no detent. 113 of them are five parts --
+      3024 (45), 30367c (33), 3005 (16), 6587 (10), 3794b (9) -- every one of which
+      has a genuinely asymmetric connector footprint (multiple anti-studs, or an
+      axle profile) and is therefore genuinely off-detent where it sits. 47 of the
+      147 share their exact local rotation with a part they are connected to, the
+      signature of a whole sub-assembly the author rotated by writing the composed
+      matrix on every part line instead of rotating a submodel; item (a) above can
+      only recover that frame when a submodel boundary exists to read it off. The
+      harness's automatic verdict at this rate is QUARANTINE and it has NOT been
+      applied, for the same reason it was not applied to E-01: quarantining on a
+      rate is the move that produced the demotion this fix withdrew.
 
   - id: B-03
     name: SNOT_LOGO_CLEARANCE

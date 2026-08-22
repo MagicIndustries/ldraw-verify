@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
+  applyDir,
   AXIS_ALIGNED_ENTRY_EPS,
   determinant3,
   isAxisAligned,
+  isAxisAlignedDirection,
   isOrthonormal,
   ORTHONORMALITY_EPS,
   SINGULAR_DET_EPS,
@@ -244,6 +246,63 @@ const noStudInPinhole: Rule = {
  * longer disagree about whether one matrix is well-formed; the per-entry
  * test itself is the shared `isAxisAligned` at `AXIS_ALIGNED_ENTRY_EPS`,
  * not a local copy of its body.
+ *
+ * WHICH PARTS IT IS A CLAIM ABOUT
+ * -------------------------------
+ * `singleStudParts` says a part is held by one stud. It does NOT say that
+ * "which way is it turned" is a question with an answer, and for a large
+ * class of real parts it isn't. Measured against the real OMR corpus (24
+ * models, every 61st file), 42 of this rule's 46 findings were parts whose
+ * yaw is either unmeasurable or physically free. Two exemptions, both
+ * derived from the shadow library's own connectivity data rather than from
+ * a hand-written part list, cover that class:
+ *
+ * (1) ROTATIONALLY SYMMETRIC PARTS ARE OUT OF SCOPE ENTIRELY.
+ *     `ConnectionGraph.rotationallySymmetricParts` (derived by
+ *     `rotationallySymmetricAxis`, connect/hotspots.ts) names the parts
+ *     whose every connector is round, coaxial, and on one line: a round 1x1
+ *     plate, a minifig head, a cone, a plant stem, a Technic pin. Turn one
+ *     about that line and nothing moves. This rule's own predicate is "yaw
+ *     mod 90 == 0", and for these parts yaw is not a quantity -- so the
+ *     rule makes NO claim about them, at any rotation, rather than a claim
+ *     it cannot support. That is a scope statement about a class of part,
+ *     which is the only kind of exemption this rule accepts; it is not a
+ *     tolerance widened until findings stopped appearing.
+ *
+ *     The consequence is deliberate and worth stating: a round 1x1 plate
+ *     whose stud axis has been TILTED off the grid is also exempt, while a
+ *     slope brick tilted the same way is not. The difference is not the
+ *     tilt, it is that the slope brick's rotation is measurable at all. A
+ *     tilted symmetric part is a claim about where its axis points, which
+ *     is a different rule from this one (and one nothing in this corpus
+ *     currently states); a part that is asymmetric is one this rule can
+ *     still measure, and it stays measured. `3040b` and `6091` -- the two
+ *     genuine violations in the corpus sample -- are asymmetric (both carry
+ *     square `S`-section anti-studs 20 LDU off their stud axis) and keep
+ *     failing.
+ *
+ * (2) A FREE-ROTATION CONNECTOR PERMITS ANY ANGLE ABOUT ITS OWN AXIS.
+ *     `ConnectionGraph.freeRotationAxes` names, per placement and in the
+ *     part's own frame, the axes of any hinge finger, ball joint or round
+ *     sliding shaft the part carries (see `freeRotationAxes` in
+ *     connect/hotspots.ts). A part hung on such a joint is set to whatever
+ *     angle the joint is turned to, so its rotation is legitimate exactly
+ *     when it is a free turn about that axis on top of an ordinary detent.
+ *
+ *     That condition is checkable, and it is checked rather than assumed:
+ *     for a joint axis `a` that is itself a grid direction in the part's
+ *     own frame, `R` decomposes as (free turn about the world joint axis) x
+ *     (detent) if and only if `R * a` is also a grid direction. (If
+ *     `R * a == A * a` for some detent `A`, then `A^-1 R` fixes `a`, so it
+ *     is a rotation about `a`; the converse is immediate.) Both halves of
+ *     that precondition are tested, not assumed -- a joint axis authored
+ *     off-grid inside its own part cannot support the decomposition, and
+ *     that case declines the exemption rather than guessing at it.
+ *     Unlike (1) this is a per-placement test, and
+ *     necessarily so -- a hinge frees one axis, not the part. A hinge plate
+ *     yawed about the vertical while its hinge axis lies horizontal is NOT
+ *     exempted by this, and is not meant to be: its yaw comes from whatever
+ *     its studs are seated in, not from its hinge.
  */
 const noFractionalRotation: Rule = {
   id: "B-05",
@@ -266,6 +325,13 @@ const noFractionalRotation: Rule = {
     for (const i of graph.singleStudParts) {
       const p = model.placements[i];
       if (!p) continue;
+
+      // Exemption (1): the part has no measurable yaw at all. Checked
+      // before the well-formedness gate below, because a rule that makes
+      // no claim about a part should not report `unknown` about it either
+      // -- "I cannot tell" is still a statement about a question, and for
+      // these parts there is no question. See this rule's doc comment.
+      if (graph.rotationallySymmetricParts?.has(i)) continue;
 
       // Well-formedness first, at E-01's OWN tolerance. This rule used to
       // ask the same question at 1e-6 -- the value l2-matrix.ts had already
@@ -295,6 +361,25 @@ const noFractionalRotation: Rule = {
       // matrix already confirmed well-formed above, so a `false` here can
       // only mean "a genuine rotation, but not a multiple of 90 degrees".
       if (isAxisAligned(p.local, AXIS_ALIGNED_ENTRY_EPS)) continue;
+
+      // Exemption (2): a joint the part carries permits free rotation about
+      // one of its own axes, and this placement's rotation is exactly such
+      // a free turn (it carries that axis to a grid direction). Evaluated
+      // here, after the well-formedness gate, because `applyDir` on a
+      // sheared or singular matrix would not preserve the axis's length and
+      // `isAxisAlignedDirection` assumes a unit vector. See this rule's doc
+      // comment for why this one is per-placement while (1) is per-part.
+      const freeAxes = graph.freeRotationAxes?.get(i) ?? [];
+      if (
+        freeAxes.some(
+          (a) =>
+            isAxisAlignedDirection(a, AXIS_ALIGNED_ENTRY_EPS) &&
+            isAxisAlignedDirection(applyDir(p.local, a), AXIS_ALIGNED_ENTRY_EPS),
+        )
+      ) {
+        continue;
+      }
+
       const rot = [
         p.local[0]!,
         p.local[1]!,

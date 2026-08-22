@@ -57,6 +57,89 @@ describe("B-05 no fractional rotation", () => {
     expect(byId("B-05").run({ model, library: lib, meta: meta("B-05") })[0]!.status).toBe("unknown");
   });
 
+  // ------------------------------------------------------------------
+  // Scope. See `noFractionalRotation`'s doc comment: this rule is only a
+  // claim about parts whose rotation is measurable and not set by a joint.
+  // ------------------------------------------------------------------
+
+  // A round 1x1 plate (6141.dat) at 33 degrees. Every one of its
+  // connectors lies on its one axis, so a turn about that axis moves
+  // nothing: there is no yaw to be a multiple of anything.
+  it("does not fire on a rotationally symmetric part at an arbitrary yaw", () => {
+    const c = Math.cos(Math.PI / 180 * 33);
+    const s = Math.sin(Math.PI / 180 * 33);
+    const model = resolveModel(
+      parseDocument(`1 4 0 -24 0 ${c} 0 ${s} 0 1 0 ${-s} 0 ${c} 3001.dat`, "t.ldr"),
+      lib,
+    );
+    model.graph = emptyGraph(1);
+    model.graph.singleStudParts = new Set([0]);
+    model.graph.rotationallySymmetricParts = new Set([0]);
+    expect(byId("B-05").run({ model, library: lib, meta: meta("B-05") })).toHaveLength(0);
+  });
+
+  // The same 33 degrees on a part that is NOT symmetric -- a square 1x1
+  // plate has its connectors in the same two places but a square anti-stud
+  // cavity, so its corners genuinely end up between detents.
+  it("fires on a genuinely asymmetric single-stud part at the same sub-detent yaw", () => {
+    const c = Math.cos(Math.PI / 180 * 33);
+    const s = Math.sin(Math.PI / 180 * 33);
+    const model = resolveModel(
+      parseDocument(`1 4 0 -24 0 ${c} 0 ${s} 0 1 0 ${-s} 0 ${c} 3001.dat`, "t.ldr"),
+      lib,
+    );
+    model.graph = emptyGraph(1);
+    model.graph.singleStudParts = new Set([0]);
+    const f = byId("B-05").run({ model, library: lib, meta: meta("B-05") });
+    expect(f).toHaveLength(1);
+    expect(f[0]!.status).toBe("fail");
+  });
+
+  // A symmetric part is outside this rule's scope even when its matrix is
+  // malformed: the rule has no question to be uncertain about, and saying
+  // `unknown` would still be answering one. E-01 reports the malformed
+  // matrix independently -- see l2-matrix.ts.
+  it("says nothing at all about a rotationally symmetric part with a malformed matrix", () => {
+    const model = resolveModel(parseDocument("1 4 0 -24 0 1 0 0 1 0 0 0 0 1 3001.dat", "t.ldr"), lib);
+    model.graph = emptyGraph(1);
+    model.graph.singleStudParts = new Set([0]);
+    model.graph.rotationallySymmetricParts = new Set([0]);
+    expect(byId("B-05").run({ model, library: lib, meta: meta("B-05") })).toHaveLength(0);
+  });
+
+  // A hinge frees ONE axis. Rotating about that axis is the joint being
+  // set; the placement is a legitimate one whatever the angle.
+  it("does not fire when the rotation is a free turn about a joint axis the part carries", () => {
+    // A 40-degree pitch about X, on a part whose hinge axis is X.
+    const c = Math.cos(Math.PI / 180 * 40);
+    const s = Math.sin(Math.PI / 180 * 40);
+    const model = resolveModel(
+      parseDocument(`1 4 0 -24 0 1 0 0 0 ${c} ${-s} 0 ${s} ${c} 3001.dat`, "t.ldr"),
+      lib,
+    );
+    model.graph = emptyGraph(1);
+    model.graph.singleStudParts = new Set([0]);
+    model.graph.freeRotationAxes = new Map([[0, [[1, 0, 0]]]]);
+    expect(byId("B-05").run({ model, library: lib, meta: meta("B-05") })).toHaveLength(0);
+  });
+
+  // The same part, the same hinge, but turned about a DIFFERENT axis: a
+  // hinge plate yawed 45 degrees while its hinge axis lies horizontal owes
+  // that yaw to whatever its studs are seated in, not to its hinge.
+  it("still fires when the rotation is not about the joint axis the part carries", () => {
+    const c = Math.SQRT1_2;
+    const model = resolveModel(
+      parseDocument(`1 4 0 -24 0 ${c} 0 ${c} 0 1 0 ${-c} 0 ${c} 3001.dat`, "t.ldr"),
+      lib,
+    );
+    model.graph = emptyGraph(1);
+    model.graph.singleStudParts = new Set([0]);
+    model.graph.freeRotationAxes = new Map([[0, [[0, 0, 1]]]]);
+    const f = byId("B-05").run({ model, library: lib, meta: meta("B-05") });
+    expect(f).toHaveLength(1);
+    expect(f[0]!.status).toBe("fail");
+  });
+
   // Finding 2: a singular, non-orthonormal matrix with a duplicated row (row
   // 0 == row 1 == [1,0,0]) has all nine rotation entries in {0,1} -- the
   // per-entry axis-alignment check sees only zeros and ones and would

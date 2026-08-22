@@ -19,9 +19,9 @@ The `L-*` rules derive from a 2006 presentation its own author has stated is sup
 
 | exit | meaning | measured on real released sets |
 | --- | --- | --- |
-| 0 | no `fail` at any tier | 4.08% |
-| 1 | at least one `HARD` fail | 3.06% |
-| 2 | no HARD fail, at least one `DISCOURAGED` fail | 92.86% |
+| 0 | no `fail` at any tier | 5.10% |
+| 1 | at least one `HARD` fail | 25.51% |
+| 2 | no HARD fail, at least one `DISCOURAGED` fail | 69.39% |
 | 3 | the tool itself could not run (bad arguments, unreadable input) | — |
 
 **Gate automation on exit 1, never on "nonzero".** Those percentages are
@@ -29,6 +29,12 @@ measured, not estimated: a 98-model sample of the OMR corpus (`.cache/omr/`,
 every 15th file by sorted set number, 6.7% of 1,464 models), scanned with the
 LDCad shadow library present. Reproduce with
 `node dist/scripts/omr-precision.js .cache/omr --every 15`.
+
+The exit-1 figure was 3.06% until `B-05` was restored to `HARD`. That earlier
+number was produced by `B-05` sitting at `DISCOURAGED`, not by the tool
+agreeing with real sets more often: the rule's scope defect was fixed at its
+root (see `B-05` below and its corpus note) and its remaining 22.45% is what
+is left after that fix, reported rather than tiered away.
 
 Exit 2 is advisory and is expected on the large majority of real, legal sets.
 That is not a bug in the exit code; it is what `DISCOURAGED` means in the
@@ -46,6 +52,27 @@ a DISCOURAGED rule.
 
 HARD tier, per model, same 98-model sample (rules at 0.00% omitted: B-01, E-03,
 E-05, E-08, E-10, B-06):
+
+- **`B-05` (`NO_FRACTIONAL_ROTATION`)** — 22 of 98 models (**22.45%**), 147 fail
+  findings. The harness's automatic verdict at that rate is `QUARANTINE`, and it
+  has **not** been applied. `B-05` was briefly `DISCOURAGED`; it is `HARD` again,
+  because the reason it was firing on ~46% of real sets turned out to be a scope
+  defect and not a tier question. It was judging yaw on parts for which yaw is
+  either unmeasurable (a round 1×1 plate, a minifig head, a cone: every connector
+  round, coaxial and centred, so turning it moves nothing) or physically free (a
+  part hung on a hinge, ball joint or round sliding shaft). Both classes are now
+  derived from the shadow library's own connectivity data — not from a part list —
+  and are out of scope. That took the rule from 420 findings on 45 models to 147
+  on 22, WITHOUT losing the genuine violations the demotion had also silenced
+  (`3040b` and `6091` still fail; there is an end-to-end regression test for each).
+  What is left is not "parts with no detent" any more: 113 of the 147 are five
+  parts with genuinely asymmetric connector footprints (`3024`, `30367c`, `3005`,
+  `6587`, `3794b`), and 47 of the 147 share their exact local rotation with a part
+  they are connected to — the signature of a whole sub-assembly rotated by writing
+  the composed matrix on every part line rather than by rotating a submodel, a
+  frame this tool cannot recover when no submodel boundary exists. Read a lone
+  `B-05` failure as "check whether this part sits in a deliberately angled
+  sub-assembly", and see its corpus note for the full measurement.
 
 - **`E-01` (`MATRIX_WELL_FORMED`)** — 3 of 94 applicable models (**3.19%**).
   The harness's automatic verdict for that rate is `DEMOTE`, and it has **not**
@@ -80,15 +107,6 @@ error rates:
   corpus note before the clause was removed. Only the `y mod 2 == 0` lattice
   check remains.
 - **`E-04` (`GRID_ALIGNMENT`)** — 60/69 (**86.96%**).
-- **`B-05` (`NO_FRACTIONAL_ROTATION`)** — 45/98 (**45.92%**). Demoted from
-  `HARD` in the final fix wave, on the corpus's own tier definitions rather
-  than on this rate: turning a single-stud part off 90 degrees stresses
-  nothing and damages nothing (which is what `HARD` means), it is merely
-  out-of-system (which is what `DISCOURAGED` means). The residual is
-  concentrated in parts with no rotational detent to be off — round 1×1 plates
-  and dishes, minifig heads, flowers, and hinge- or pin-mounted accessories —
-  which this tool cannot identify without a per-part rotational-symmetry table
-  it does not ship. See `B-05`'s note in the corpus.
 
 `E-02` and `E-04` are per-placement checks, so their per-model rate saturates:
 one odd coordinate anywhere in a 1,900-part set fires the rule for that model.

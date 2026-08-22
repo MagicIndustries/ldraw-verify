@@ -195,6 +195,31 @@ export function isOrthonormal(m: Mat4, eps = ORTHONORMALITY_EPS): boolean {
 export function isAxisAligned(m: Mat4, eps = AXIS_ALIGNED_ENTRY_EPS): boolean {
   if (Math.abs(determinant3(m)) < eps) return false;
   if (!isOrthonormal(m, eps)) return false;
-  const rotation = [m[0]!, m[1]!, m[2]!, m[4]!, m[5]!, m[6]!, m[8]!, m[9]!, m[10]!];
-  return rotation.every((v) => Math.abs(v) < eps || Math.abs(Math.abs(v) - 1) < eps);
+  // Every entry of the rotation block is 0 or +-1 exactly when each of its
+  // three rows is itself an axis direction -- the same per-entry test,
+  // taken from the one place it is defined rather than repeated here.
+  const rows: Vec3[] = [
+    [m[0]!, m[1]!, m[2]!],
+    [m[4]!, m[5]!, m[6]!],
+    [m[8]!, m[9]!, m[10]!],
+  ];
+  return rows.every((r) => isAxisAlignedDirection(r, eps));
+}
+
+/**
+ * True when a unit DIRECTION points along a coordinate axis -- every
+ * component 0 or +-1, which is the same per-entry test `isAxisAligned`
+ * applies to a whole rotation block, at the same `AXIS_ALIGNED_ENTRY_EPS`.
+ *
+ * Same quantity, one constant. This exists so B-05's "does this placement
+ * carry the part's own free axis to a grid direction?" question cannot
+ * drift away from the tolerance its axis-alignment test already uses --
+ * the drift this file's tolerance block was written to stop. `isAxisAligned`
+ * is expressed in terms of it for the same reason.
+ *
+ * Assumes `v` is unit length (every caller normalises first): 0/+-1 per
+ * component only characterises an axis direction for a unit vector.
+ */
+export function isAxisAlignedDirection(v: Vec3, eps = AXIS_ALIGNED_ENTRY_EPS): boolean {
+  return v.every((c) => Math.abs(c) < eps || Math.abs(Math.abs(c) - 1) < eps);
 }

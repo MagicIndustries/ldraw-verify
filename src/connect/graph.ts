@@ -3,7 +3,13 @@ import type { Vec3 } from "../parse/ast.js";
 import { applyDir, applyPoint } from "../resolve/matrix.js";
 import type { ResolvedModel } from "../resolve/ir.js";
 import { collectSnapMetas } from "./closure.js";
-import { metasToHotspots, type Hotspot } from "./hotspots.js";
+import {
+  freeRotationAxes,
+  metasToHotspots,
+  rotationallySymmetricAxis,
+  ROUND_SECTION,
+  type Hotspot,
+} from "./hotspots.js";
 import type { ShadowLibrary } from "./shadow.js";
 
 export interface Edge {
@@ -210,6 +216,34 @@ export interface ConnectionGraph {
    * library).
    */
   singleStudParts?: Set<number>;
+  /**
+   * Placement indices whose part has continuous rotational symmetry about
+   * its own connection axis -- every connector round, coaxial and on that
+   * one line. See `rotationallySymmetricAxis` (connect/hotspots.ts) for the
+   * derivation and for why a square 1x1 plate does NOT qualify despite
+   * having its connectors in the same places as a round one.
+   *
+   * Derived from the same hotspot data as `singleStudParts`, for the same
+   * reason: which parts these are is a fact about the shadow library, not
+   * something a hand-authored list should have to keep up with. B-05 uses
+   * it to decide that a part is outside its scope entirely -- "which way is
+   * it turned" is not a question that has an answer for a part like this,
+   * so the rule makes no claim rather than a wrong one.
+   */
+  rotationallySymmetricParts?: Set<number>;
+  /**
+   * Placement index -> axes, in the PART'S OWN frame, about which a
+   * connector the part carries permits free rotation (a hinge finger, a
+   * ball joint, a round sliding shaft). See `freeRotationAxes`
+   * (connect/hotspots.ts).
+   *
+   * Only placements with at least one such axis appear. The part frame,
+   * not the world frame, is what a consumer needs: B-05 asks whether a
+   * placement's own local rotation carries one of these axes to an
+   * axis-aligned direction, which is exactly the condition for the
+   * placement to be a legitimate setting of that joint.
+   */
+  freeRotationAxes?: Map<number, Vec3[]>;
 }
 
 /** Stud radius (LDU) a male `SNAP_CYL` hotspot must be near to count as a
@@ -245,9 +279,6 @@ const STUD_RADIUS_TOL = 0.5;
  */
 const STUD_HEIGHT = 4;
 const STUD_HEIGHT_TOL = 0.5;
-/** `secs=` shape letter of a round section. A System stud is round; a
- * Technic axle end is "A" (an axle cross) at the same nominal radius. */
-const ROUND_SECTION = "R";
 
 /** World-space distance (LDU) within which two hotspots are considered coincident. */
 const POS_TOL = 1.0;
@@ -394,6 +425,8 @@ export async function buildGraph(
   const unreliableAxisPlacements: number[] = [];
   const clipOnlyPlacements: number[] = [];
   const singleStudParts = new Set<number>();
+  const rotationallySymmetricParts = new Set<number>();
+  const freeRotation = new Map<number, Vec3[]>();
   const all: LocatedHotspot[] = [];
   /**
    * Per-placement bookkeeping for `incompleteDataPlacements` /
@@ -457,6 +490,19 @@ export async function buildGraph(
         !h.slide,
     );
     if (studHotspots.length === 1) singleStudParts.add(p.index);
+
+    // Both of these are properties of the PART, read off the hotspots
+    // already in hand and in the part's own frame -- deliberately not
+    // gated on `hadData`/`degradedGridCount`/`axisUnreliable`. Missing or
+    // corrupted hotspot data can only break coaxiality or drop a
+    // connector's section letter, and either one makes
+    // `rotationallySymmetricAxis` return `undefined`; the failure mode is
+    // "no exemption found", i.e. B-05 stays strict, never "exemption
+    // fabricated from bad data".
+    if (rotationallySymmetricAxis(hotspots)) rotationallySymmetricParts.add(p.index);
+    const free = freeRotationAxes(hotspots);
+    if (free.length > 0) freeRotation.set(p.index, free);
+
     if (hotspots.length > 0 && hotspots.every((h) => UNPAIRABLE_KINDS.has(h.kind))) {
       clipOnlyPlacements.push(p.index);
     }
@@ -577,5 +623,7 @@ export async function buildGraph(
     incompleteDataPlacements,
     fullyAccountedPlacements,
     singleStudParts,
+    rotationallySymmetricParts,
+    freeRotationAxes: freeRotation,
   };
 }
