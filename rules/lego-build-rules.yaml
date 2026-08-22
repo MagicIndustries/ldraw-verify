@@ -529,21 +529,26 @@ rules:
     note: "22.5 deg proven three ways: tooth crests in clh4.dat, Berard's slide, primitive naming."
 
   - id: L-04
-    name: PIN_NOT_IN_CLICK
+    name: NO_HALF_PIN_SHORT_END_IN_HOLE
     tier: HARD
     kind: constraint
     domain: physical
     source_tier: P1
-    statement: "The short end of a half pin may not be inserted into a Technic hole; one end of a full-length pin may."
+    statement: "The short end of a half pin may not be inserted into a Technic hole."
     note: >
-      RESTATED 2026-08-22. Previously "Every Technic pin must be seated in its
-      detent", which is a misreading. Berard's example is not about how far
-      along its axis a pin has been pushed: it contrasts the SHORT stub end of
-      a half pin (4274), which is too short to engage the bore and bears on
-      almost nothing, against one end of a full-length pin (3673), which is the
-      length the bore was cut for. The exemplar pair now shows exactly that --
-      viewed through the bore, the half pin leaves it empty while the full pin
-      fills it.
+      RESTATED AND RENAMED 2026-08-22. Was PIN_NOT_IN_CLICK, "every Technic pin
+      must be seated in its detent" -- a misreading. Berard's example is not
+      about how far along its axis a pin has been pushed. It is about which END
+      of a half pin (4274) is used: the short stub is not long enough to engage
+      the bore and bears on almost nothing, so it must not be the end that goes
+      in. The old name asserted the misreading, which is worse than a vague one
+      because a consuming agent reads the name first.
+
+      The legal contrast is one end of a full-length pin (3673), which is the
+      length the bore was cut for. Both exemplars carry an exploded companion
+      panel showing the connector beside the bore before insertion: assembled,
+      the engaging end is inside the brick and the whole distinction is
+      invisible.
     check: transform
     predicate: "half-pin short end engaged in a Technic bore"
     parts: [3673, 4274, 2780]
