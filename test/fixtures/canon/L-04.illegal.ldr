@@ -1,0 +1,5 @@
+0 L-04 ILLEGAL: a Technic pin left short of its detent
+0 Name: L-04.illegal.ldr
+0 Author: ldraw-verify CANON
+1 7 0 0 0 1 0 0 0 1 0 0 0 1 3700.dat
+1 4 0 10 -26 1 0 0 0 0 1 0 -1 0 3673.dat

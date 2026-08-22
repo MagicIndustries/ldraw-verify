@@ -1,0 +1,5 @@
+0 E-02 ILLEGAL: a placement 27 LDU up, off the vertical lattice
+0 Name: E-02.illegal.ldr
+0 Author: ldraw-verify CANON
+1 7 0 0 0 1 0 0 0 1 0 0 0 1 3001.dat
+1 4 0 -27 0 1 0 0 0 1 0 0 0 1 3001.dat
