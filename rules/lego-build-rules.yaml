@@ -332,12 +332,40 @@ rules:
 
   - id: B-07
     name: MASONRY_BOND
-    tier: HARD
+    tier: DISCOURAGED
     source_tier: P1
-    statement: "Courses must overlap; vertical seams must not repeat between adjacent courses."
+    statement: "Bricks and plates should overlap wherever possible; vertical seams should not repeat between adjacent courses."
     check: grid
     predicate: "no coincident vertical seam x between adjacent courses; min overlap 2 studs"
     confidence: high
+    note: >
+      DEMOTED HARD -> DISCOURAGED 2026-08-22, and the statement softened to match
+      its source. The source is the BrickLink Designer Program's *Stability*
+      guidance, whose relevant line is that bricks and plates "should overlap
+      whenever possible" -- immediately conceding that building in stacks may
+      have visual appeal, and weighing that against the model staying together.
+      That is a stability recommendation with an explicit escape clause, not a
+      legality constraint: a stacked seam makes a wall weaker, never unbuildable,
+      unlike a stud forced into a pinhole. The corpus had escalated "should,
+      wherever possible" into "must", which no source supports.
+
+      Measured consequence: 6.1% of real released sets have a repeated seam
+      between adjacent brick courses (244-model sample, verified genuine by
+      coordinates in 10133-1). At HARD those all failed the exit-1 gate. They are
+      real observations about bond strength and worth reporting -- at advisory
+      tier, which is what the source's own hedging licenses.
+
+      Two further caveats carried from -ref-legality.md section B-07, where this
+      rule is filed as BDP_STABILITY:
+      (1) Only the seam clause is implemented. The source's other stability
+          sentences -- drooping walls, normal building pressure, pressing parts
+          down on a flat surface -- are judgement or physical test, not checkable.
+          The name MASONRY_BOND does not signal that narrowing.
+      (2) The reference's own summary table marks B-07's checkable column "No"
+          while its prose says "Partly" and gives this exact predicate, and
+          -ref-ldraw.md twice files seam staggering under aesthetic judgement.
+          The research is not internally consistent about whether this is
+          checkable at all; the implemented rule takes the prose reading.
 
   - id: B-08
     name: TECHNIC_SMOOTHNESS
