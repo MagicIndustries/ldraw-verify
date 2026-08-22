@@ -6,12 +6,12 @@ pinhole" — run over every model in the OMR corpus.
 | | |
 |---|---|
 | Models scanned | **1,464** (0 errors) |
-| Models with a B-01 finding | 17 (1.16%) |
-| Total findings | 33 |
-| Genuine violations | **0** |
-| False positives | **33** |
+| Models with a finding — before the fix | 17 (1.16%) |
+| Total findings — before | 33, of which **0** genuine |
+| Total findings — after the attribution fix | **0** |
 
-No official set in the corpus breaks B-01. Every finding is a false positive.
+No official set in the corpus breaks B-01. Every finding was a false positive,
+and all 33 are now gone. `B-01.illegal` still fires, so the fix cost no recall.
 
 ## Why they fire
 
@@ -48,17 +48,28 @@ its r=6 features are female pinholes with `slide=true`. There is no System stud
 in the pairing at all, so it is a false positive too, by a different route:
 B-01 never verifies the **male** side is a System stud.
 
-## Two defects, not one
+## Fixed — three attribution defects
 
-1. **Female attribution.** The `caps=none` female must be resolved to a specific
-   placement, and *that* placement must be the Technic-hole part. The graph's
-   `Edge` does not currently record which side was female, which is what makes
-   this uncheckable inside the rule today.
-2. **Male attribution.** The male side is never confirmed to be a System stud.
-   Radius ~6 and "not sliding" also describes wheel hubs and other bosses.
+All three had the same shape: `Edge` carried a value that describes *one side*
+of a pairing without recording which side it came from, so a rule could not ask
+its actual question.
 
-Both are attribution problems in the same place: `Edge` carries `femaleCaps` and
-`maleSlide` as bare values without recording which endpoint they came from.
+1. **Which part owns the socket.** `Edge` now carries `female` and `male`
+   placement indices. B-01 requires the Technic-hole part to be the *female*
+   endpoint, so "a stud is in this part's hole" is now a claim the data
+   supports. This removed 32 of the 33 findings.
+2. **Which side the radius describes.** `Edge.radius` falls back between sides,
+   so a stud-sized reading could be the socket's. `maleRadius` and
+   `femaleRadius` are now recorded without fallback, and B-01 tests the male's
+   own radius. Every genuine System stud primitive carries r=6, so this costs
+   no recall. This removed the 33rd — a wheel rim whose only male connector is
+   its r=38 tyre seat.
+3. **Evidence split across duplicate edges.** A Technic pin in a hole yields
+   three edges at one point and only one carries `slide=true`, so reading
+   `maleSlide` off a single edge missed it and reported a correctly seated pin
+   as a stud in a pinhole. B-01 now groups edges by the pair they join and
+   where, and treats sliding evidence as applying to the whole connection.
+   This is what fixed the `L-04.legal` canon fixture.
 
 ## Related: duplicate edges
 

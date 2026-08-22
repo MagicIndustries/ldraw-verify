@@ -10,6 +10,7 @@ import {
   ORTHONORMALITY_EPS,
   SINGULAR_DET_EPS,
 } from "../resolve/matrix.js";
+import type { Edge } from "../connect/graph.js";
 import type { Finding, Rule, RuleContext } from "./types.js";
 
 /**
@@ -153,9 +154,35 @@ const noStudInPinhole: Rule = {
 
     ensureTechnicHolePartsLoaded();
 
-    const out: Finding[] = [];
+    // One physical connection can surface as several edges: a Technic pin in
+    // a hole yields three, and only one of them carries `slide=true`. Reading
+    // `maleSlide` off a single edge therefore misses the evidence sitting on
+    // its own duplicates, and a correctly seated pin gets reported as a stud
+    // in a pinhole. Group edges by the pair they join and where they join it,
+    // so the sliding evidence applies to the whole connection.
+    const connections = new Map<string, { edges: Edge[]; sliding: boolean }>();
     for (const e of graph.edges) {
-      if (e.radius === undefined || Math.abs(e.radius - STUD_RADIUS) > STUD_RADIUS_TOL) continue;
+      const key = `${e.female}|${e.male}|${e.at.map((v) => Math.round(v)).join(",")}`;
+      const group = connections.get(key) ?? { edges: [], sliding: false };
+      group.edges.push(e);
+      group.sliding ||= e.maleSlide === true;
+      connections.set(key, group);
+    }
+
+    const out: Finding[] = [];
+    for (const { edges, sliding } of connections.values()) {
+      // Read the radius off the MALE side specifically. `Edge.radius` falls
+      // back to whichever side carried a value, so a stud-sized reading there
+      // may be describing the socket rather than the plug -- in set 1682-1 a
+      // wheel rim whose only male connector is its r=38 tyre seat was called
+      // a System stud on the strength of the pinhole's 6. Every genuine
+      // System stud primitive carries its own r=6, so requiring the male's
+      // own radius costs no true positives; a male with no radius data at all
+      // is left unflagged rather than guessed at.
+      const e = edges.find(
+        (x) => x.maleRadius !== undefined && Math.abs(x.maleRadius - STUD_RADIUS) <= STUD_RADIUS_TOL,
+      );
+      if (!e) continue;
       // Only a confirmed through-hole (caps=none) is a pinhole a stud can be
       // jammed into -- caps=one (the common case: an ordinary stud or blind
       // anti-stud tube) and missing caps data are both left unflagged. See
@@ -164,25 +191,23 @@ const noStudInPinhole: Rule = {
       // A sliding male connector is an axle/pin, not a System stud -- seating
       // one in a Technic hole is the ordinary, intended use of that hole.
       // See this rule's doc comment.
-      if (e.maleSlide) continue;
-      const pa = model.placements[e.a];
-      const pb = model.placements[e.b];
-      if (!pa || !pb) continue;
-
-      // One physical connection, one finding. A part like 3700.dat is a
-      // Technic-hole part that also carries ordinary studs, so both
-      // endpoints of an edge can legitimately be Technic-hole-class at
-      // once (two such parts mated normally). Evaluate both orientations
-      // to find a match, but report at most one finding for this edge --
-      // never one per matching orientation.
-      const match = (
-        [
-          [pa, pb],
-          [pb, pa],
-        ] as const
-      ).find(([, target]) => TECHNIC_HOLE_PARTS.has(target.partId.toLowerCase()));
-      if (!match) continue;
-      const [source, target] = match;
+      if (sliding) continue;
+      // The socket and the plug, not merely "the two parts that met". Asking
+      // whether EITHER endpoint is a Technic-hole part conflates "this part
+      // has a hole somewhere" with "the hole is what is connected here", and
+      // those come apart constantly: `caps=none` describes any opening with
+      // no closed end, so a hollow stud, a round-brick barrel and a cone bore
+      // all report it just as a Technic pinhole does. Stack a hollow-stud
+      // round brick on a Technic brick and the round brick supplies the
+      // `caps=none` female while the Technic brick supplies an ordinary top
+      // stud -- the old test blamed the Technic brick's pinhole, which sits
+      // ten LDU away and is not party to the connection. Requiring the
+      // Technic-hole part to be the FEMALE endpoint is what makes the claim
+      // "a stud is in this part's hole" actually true.
+      const target = model.placements[e.female];
+      const source = model.placements[e.male];
+      if (!target || !source) continue;
+      if (!TECHNIC_HOLE_PARTS.has(target.partId.toLowerCase())) continue;
       out.push({
         ruleId: meta.id,
         tier: meta.tier,
