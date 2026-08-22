@@ -40,8 +40,11 @@ def rulecard(r):
                         else:
                             fires, cls = "does NOT fire its rule", "vwarn"
                     else:
-                        fires = "clean" if not v["fails"] else "fires "+", ".join(v["fails"])
-                        cls = "vok" if not v["own"] else "vwarn"
+                        if not v["fails"]:
+                            fires, cls = "clean — no rule fires", "vok"
+                        else:
+                            fires = "false positive: "+", ".join(v["fails"])
+                            cls = "vwarn"
                     vt=f'<span class="vchip {cls}">{v["edges"]} conn · {conn} · {fires}</span>'
                 cells+=f'<figure class="ex {kind}"><img src="{src}" alt="{lbl} exemplar for {r["id"]}" loading="lazy"><figcaption>{lbl}{vt}</figcaption></figure>'
         ex=f'<div class="exrow">{cells}</div>'

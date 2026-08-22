@@ -194,7 +194,7 @@
  "L-03": {
   "illegal": {
    "parts": 2,
-   "edges": 4,
+   "edges": 2,
    "comps": 1,
    "fails": [
     "B-01"
@@ -203,9 +203,11 @@
   },
   "legal": {
    "parts": 2,
-   "edges": 3,
+   "edges": 1,
    "comps": 1,
-   "fails": [],
+   "fails": [
+    "B-01"
+   ],
    "own": false
   }
  },

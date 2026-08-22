@@ -1,5 +1,6 @@
-0 L-03 ILLEGAL: several studs driven into a row of Technic holes
+0 L-03 ILLEGAL: two studs of the 1x4 plate driven into two Technic holes.
+0 The legal twin engages exactly one; this one is the same build pushed a stud further in.
 0 Name: L-03.illegal.ldr
 0 Author: ldraw-verify CANON
 1 7 0 0 0 1 0 0 0 1 0 0 0 1 3702.dat
-1 4 -30 10 0 1 0 0 0 0 1 0 -1 0 3710.dat 
+1 4 -70 10 0 1 0 0 0 0 1 0 -1 0 3710.dat
