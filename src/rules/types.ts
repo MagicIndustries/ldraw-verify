@@ -22,12 +22,32 @@ export interface Finding {
   evidence?: Record<string, unknown>;
 }
 
+/**
+ * What sort of corpus entry this is. Only a `constraint` can be violated, and
+ * only a constraint carries a tier -- see the `kinds:` block in
+ * rules/lego-build-rules.yaml. A `permission` records a technique that looks
+ * illegal and is not (so a generator does not "fix" it); a `reference` is a
+ * geometric fact about the parts. Neither ever fires.
+ */
+export type RuleKind = "constraint" | "permission" | "reference";
+
+/**
+ * What a violation is ABOUT, independent of how severe it is. `physical` is a
+ * claim about the assembled model, `file` about the LDraw/MPD file or the
+ * library it cites, `submission` about the BrickLink Designer Program as a
+ * programme. Tier wording is domain-relative: HARD means "damages an element"
+ * for physical, "the file is wrong" for file, "rejected" for submission.
+ */
+export type RuleDomain = "physical" | "file" | "submission";
+
 export interface RuleMeta {
   id: string;
   name: string;
   tier: Tier;
   statement: string;
   check?: string;
+  kind?: RuleKind;
+  domain?: RuleDomain;
 }
 
 export interface RuleContext {

@@ -4,6 +4,7 @@ import { parseDocument } from "../src/parse/document.js";
 import { resolveModel } from "../src/resolve/resolve.js";
 import { l2Rules } from "../src/rules/l2-matrix.js";
 import { l3Rules } from "../src/rules/l3-grid.js";
+import type { StudFootprint } from "../src/connect/graph.js";
 import type { Rule, RuleMeta } from "../src/rules/types.js";
 
 const lib = await LibraryIndex.fromDirectory("test/fixtures/lib");
@@ -84,5 +85,102 @@ describe("L2/L3 rules", () => {
 
   it("E-04 passes a half-stud jumper offset of 10", () => {
     expect(fire(byId(l3Rules, "E-04"), "1 4 10 -24 0 1 0 0 0 1 0 0 0 1 3001.dat", "DISCOURAGED")).toHaveLength(0);
+  });
+});
+
+describe("B-07 masonry bond", () => {
+  const rule = byId(l3Rules, "B-07");
+
+  /**
+   * Drive B-07 from stud footprints directly. Footprint extents are to the
+   * STUDS, so a part's outline runs half a stud pitch (10 LDU) beyond each
+   * end -- studs at x=[-30,-10] is a brick occupying [-40, 0].
+   */
+  function fireB07(footprints: StudFootprint[]) {
+    const text = footprints.map(() => "1 4 0 0 0 1 0 0 0 1 0 0 0 1 3001.dat").join("\n");
+    const model = resolveModel(parseDocument(text, "t.ldr"), lib);
+    model.graph = {
+      edges: [],
+      coverage: { withData: 0, total: 0, ratio: 1 },
+      unknownPlacements: [],
+      components: 1,
+      componentOf: [],
+      incompleteDataPlacements: [],
+      fullyAccountedPlacements: [],
+      degradedGridPlacements: [],
+      unreliableAxisPlacements: [],
+      clipOnlyPlacements: [],
+      studFootprints: new Map(footprints.map((f, i) => [i, f])),
+    };
+    return rule.run({ model, library: lib, meta: meta("B-07") });
+  }
+
+  const brick = (y: number, x0: number, x1: number, z = 0): StudFootprint => ({
+    y,
+    minX: x0,
+    maxX: x1,
+    minZ: z,
+    maxZ: z,
+    count: 2,
+  });
+
+  it("fails when a seam repeats in the course directly above", () => {
+    // Both courses split at x=0, one brick height (24 LDU) apart.
+    const f = fireB07([
+      brick(0, -30, -10),
+      brick(0, 10, 30),
+      brick(-24, -30, -10),
+      brick(-24, 10, 30),
+    ]);
+    expect(f).toHaveLength(1);
+    expect(f[0]!.status).toBe("fail");
+    expect(f[0]!.message).toContain("x=0");
+  });
+
+  it("passes a staggered bond, where each course's seam lands over a brick below", () => {
+    const f = fireB07([brick(0, -30, -10), brick(0, 10, 30), brick(-24, -10, 10), brick(-24, 30, 50)]);
+    expect(f).toHaveLength(0);
+  });
+
+  it("passes single-stud parts stacked in a column", () => {
+    // A column of 1x1s has no length to bond with -- it is a column by
+    // design, not a wall built wrong. Admitting these once made the rule
+    // fire on 26% of real sets by grouping round plates into fake courses.
+    const one = (y: number, x: number): StudFootprint => ({ y, minX: x, maxX: x, minZ: 0, maxZ: 0, count: 1 });
+    expect(fireB07([one(0, -10), one(0, 10), one(-24, -10), one(-24, 10)])).toHaveLength(0);
+  });
+
+  it("does not compare courses a plate apart, only a full brick apart", () => {
+    const f = fireB07([brick(0, -30, -10), brick(0, 10, 30), brick(-8, -30, -10), brick(-8, 10, 30)]);
+    expect(f).toHaveLength(0);
+  });
+
+  it("does not treat a repeated seam in a different z band as the same joint", () => {
+    const f = fireB07([
+      brick(0, -30, -10, 0),
+      brick(0, 10, 30, 0),
+      brick(-24, -30, -10, 200),
+      brick(-24, 10, 30, 200),
+    ]);
+    expect(f).toHaveLength(0);
+  });
+
+  it("finds a wall running along z, not only along x", () => {
+    const zBrick = (y: number, z0: number, z1: number): StudFootprint => ({
+      y,
+      minX: 0,
+      maxX: 0,
+      minZ: z0,
+      maxZ: z1,
+      count: 2,
+    });
+    const f = fireB07([zBrick(0, -30, -10), zBrick(0, 10, 30), zBrick(-24, -30, -10), zBrick(-24, 10, 30)]);
+    expect(f).toHaveLength(1);
+    expect(f[0]!.message).toContain("z=0");
+  });
+
+  it("returns unknown without stud footprints", () => {
+    const model = resolveModel(parseDocument("1 4 0 0 0 1 0 0 0 1 0 0 0 1 3001.dat", "t.ldr"), lib);
+    expect(rule.run({ model, library: lib, meta: meta("B-07") })[0]!.status).toBe("unknown");
   });
 });

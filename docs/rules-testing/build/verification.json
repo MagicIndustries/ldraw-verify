@@ -11,7 +11,7 @@
   },
   "legal": {
    "parts": 2,
-   "edges": 2,
+   "edges": 1,
    "comps": 1,
    "fails": [],
    "own": false
@@ -20,7 +20,7 @@
  "B-05": {
   "illegal": {
    "parts": 2,
-   "edges": 2,
+   "edges": 1,
    "comps": 1,
    "fails": [
     "B-05"
@@ -29,7 +29,7 @@
   },
   "legal": {
    "parts": 2,
-   "edges": 2,
+   "edges": 1,
    "comps": 1,
    "fails": [],
    "own": false
@@ -56,14 +56,16 @@
  "B-07": {
   "illegal": {
    "parts": 6,
-   "edges": 32,
+   "edges": 8,
    "comps": 2,
-   "fails": [],
-   "own": false
+   "fails": [
+    "B-07"
+   ],
+   "own": true
   },
   "legal": {
    "parts": 6,
-   "edges": 24,
+   "edges": 6,
    "comps": 1,
    "fails": [],
    "own": false
@@ -146,7 +148,7 @@
  "G-01": {
   "legal": {
    "parts": 4,
-   "edges": 4,
+   "edges": 2,
    "comps": 2,
    "fails": [
     "B-06"
@@ -157,7 +159,7 @@
  "G-02": {
   "legal": {
    "parts": 2,
-   "edges": 4,
+   "edges": 1,
    "comps": 1,
    "fails": [],
    "own": false
@@ -166,7 +168,7 @@
  "G-03": {
   "legal": {
    "parts": 7,
-   "edges": 10,
+   "edges": 6,
    "comps": 2,
    "fails": [
     "B-06",
@@ -191,26 +193,6 @@
    "own": false
   }
  },
- "L-03": {
-  "illegal": {
-   "parts": 2,
-   "edges": 2,
-   "comps": 1,
-   "fails": [
-    "B-01"
-   ],
-   "own": false
-  },
-  "legal": {
-   "parts": 2,
-   "edges": 1,
-   "comps": 1,
-   "fails": [
-    "B-01"
-   ],
-   "own": false
-  }
- },
  "L-04": {
   "illegal": {
    "parts": 2,
@@ -221,11 +203,9 @@
   },
   "legal": {
    "parts": 2,
-   "edges": 3,
+   "edges": 1,
    "comps": 1,
-   "fails": [
-    "B-01"
-   ],
+   "fails": [],
    "own": false
   }
  },
@@ -248,7 +228,7 @@
  "L-10": {
   "illegal": {
    "parts": 4,
-   "edges": 4,
+   "edges": 2,
    "comps": 2,
    "fails": [
     "B-06"

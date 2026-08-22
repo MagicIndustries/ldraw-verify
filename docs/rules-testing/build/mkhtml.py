@@ -65,7 +65,7 @@ def rulecard(r):
     status='<span class="pill done">implemented</span>' if r["impl"] else ""
     return f"""<article class="rule" id="rule-{r['id']}">
   <div class="rhead"><code class="rid">{r['id']}</code><h3>{html.escape(r['name'])}</h3>
-    <span class="pill {st}">{r['tier'].lower()}</span>{status}
+    <span class="pill {st}">{r['tier'].lower()}</span><span class="pill dom dom-{r.get('domain','physical')}">{r.get('domain','physical')}</span>{status}
     <span class="srcs">{html.escape(src)}</span></div>
   <p class="rstmt">{html.escape(r['stmt'])}</p>
   {note}
@@ -304,6 +304,10 @@ td{{font-variant-numeric:tabular-nums}}
   padding:3px 5px;border-radius:3px;background:var(--chipbg,rgba(127,127,127,.1));color:var(--muted)}}
 .vchip.vok{{color:var(--ok,#3f9d63)}} .vchip.vwarn{{color:var(--excl)}}
 .vchip.vna{{opacity:.72;font-style:italic}}
+.pill.dom{{background:transparent;border:1px solid currentColor;opacity:.75;font-weight:600}}
+.pill.dom-physical{{color:var(--accent)}}
+.pill.dom-file{{color:var(--slate)}}
+.pill.dom-submission{{color:var(--gold,#9a7b2f)}}
 .nopic{{margin:10px 0 0;font-size:.88rem;color:var(--muted);font-style:italic}}
 
 .srcbox{{margin-top:12px;padding-top:10px;border-top:1px dashed var(--rule)}}
