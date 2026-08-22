@@ -1,0 +1,302 @@
+{
+ "B-01": {
+  "illegal": {
+   "parts": 2,
+   "edges": 1,
+   "comps": 1,
+   "fails": [
+    "B-01"
+   ],
+   "own": true
+  },
+  "legal": {
+   "parts": 2,
+   "edges": 2,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  }
+ },
+ "B-05": {
+  "illegal": {
+   "parts": 2,
+   "edges": 2,
+   "comps": 1,
+   "fails": [
+    "B-05"
+   ],
+   "own": true
+  },
+  "legal": {
+   "parts": 2,
+   "edges": 2,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  }
+ },
+ "B-06": {
+  "illegal": {
+   "parts": 2,
+   "edges": 0,
+   "comps": 2,
+   "fails": [
+    "B-06"
+   ],
+   "own": true
+  },
+  "legal": {
+   "parts": 2,
+   "edges": 8,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  }
+ },
+ "B-07": {
+  "illegal": {
+   "parts": 6,
+   "edges": 32,
+   "comps": 2,
+   "fails": [],
+   "own": false
+  },
+  "legal": {
+   "parts": 6,
+   "edges": 24,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  }
+ },
+ "E-01": {
+  "illegal": {
+   "parts": 1,
+   "edges": 0,
+   "comps": 1,
+   "fails": [
+    "E-01"
+   ],
+   "own": true
+  },
+  "legal": {
+   "parts": 1,
+   "edges": 0,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  }
+ },
+ "E-02": {
+  "illegal": {
+   "parts": 2,
+   "edges": 0,
+   "comps": 2,
+   "fails": [
+    "B-06",
+    "E-02"
+   ],
+   "own": true
+  },
+  "legal": {
+   "parts": 2,
+   "edges": 8,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  }
+ },
+ "E-04": {
+  "illegal": {
+   "parts": 2,
+   "edges": 0,
+   "comps": 2,
+   "fails": [
+    "B-06",
+    "E-04"
+   ],
+   "own": true
+  },
+  "legal": {
+   "parts": 2,
+   "edges": 1,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  }
+ },
+ "E-07": {
+  "illegal": {
+   "parts": 1,
+   "edges": 0,
+   "comps": 1,
+   "fails": [
+    "E-07"
+   ],
+   "own": true
+  },
+  "legal": {
+   "parts": 1,
+   "edges": 0,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  }
+ },
+ "G-01": {
+  "legal": {
+   "parts": 4,
+   "edges": 4,
+   "comps": 2,
+   "fails": [
+    "B-06"
+   ],
+   "own": false
+  }
+ },
+ "G-02": {
+  "legal": {
+   "parts": 2,
+   "edges": 4,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  }
+ },
+ "G-03": {
+  "legal": {
+   "parts": 7,
+   "edges": 10,
+   "comps": 2,
+   "fails": [
+    "B-06",
+    "E-07"
+   ],
+   "own": false
+  }
+ },
+ "L-01": {
+  "illegal": {
+   "parts": 2,
+   "edges": 1,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  },
+  "legal": {
+   "parts": 2,
+   "edges": 1,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  }
+ },
+ "L-03": {
+  "illegal": {
+   "parts": 2,
+   "edges": 4,
+   "comps": 1,
+   "fails": [
+    "B-01"
+   ],
+   "own": false
+  },
+  "legal": {
+   "parts": 2,
+   "edges": 3,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  }
+ },
+ "L-04": {
+  "illegal": {
+   "parts": 2,
+   "edges": 0,
+   "comps": 2,
+   "fails": [],
+   "own": false
+  },
+  "legal": {
+   "parts": 2,
+   "edges": 3,
+   "comps": 1,
+   "fails": [
+    "B-01"
+   ],
+   "own": false
+  }
+ },
+ "L-07": {
+  "illegal": {
+   "parts": 2,
+   "edges": 1,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  },
+  "legal": {
+   "parts": 2,
+   "edges": 1,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  }
+ },
+ "L-10": {
+  "illegal": {
+   "parts": 4,
+   "edges": 4,
+   "comps": 2,
+   "fails": [
+    "B-06"
+   ],
+   "own": false
+  }
+ },
+ "T-01": {
+  "illegal": {
+   "parts": 1,
+   "edges": 0,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  }
+ },
+ "T-03": {
+  "illegal": {
+   "parts": 8,
+   "edges": 0,
+   "comps": 8,
+   "fails": [
+    "B-06"
+   ],
+   "own": false
+  },
+  "legal": {
+   "parts": 4,
+   "edges": 0,
+   "comps": 4,
+   "fails": [
+    "B-06"
+   ],
+   "own": false
+  }
+ },
+ "T-08": {
+  "illegal": {
+   "parts": 4,
+   "edges": 16,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  },
+  "legal": {
+   "parts": 2,
+   "edges": 8,
+   "comps": 1,
+   "fails": [],
+   "own": false
+  }
+ }
+}

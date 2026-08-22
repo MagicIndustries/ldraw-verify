@@ -1,7 +1,10 @@
 import json,re,html
+import os as _os
+EXT = _os.environ.get("EXTERNAL_ASSETS")=="1"
 D=json.load(open("/tmp/lego-viz/pagedata.json"))
 INV=json.load(open("/tmp/lego-viz/inventory.json"))
 RD=json.load(open("/tmp/lego-viz/ruledetail.json"))
+VER=json.load(open("/tmp/lego-viz/verification.json"))
 
 THREE=open("three.iife.js").read()
 
@@ -22,7 +25,25 @@ def rulecard(r):
         for kind in ("illegal","legal"):
             if kind in r["imgs"]:
                 lbl="Illegal" if kind=="illegal" else "Legal"
-                cells+=f'<figure class="ex {kind}"><img src="data:image/png;base64,{r["imgs"][kind]}" alt="{lbl} exemplar for {r["id"]}" loading="lazy"><figcaption>{lbl}</figcaption></figure>'
+                src=(f"assets/exemplars/{r['id']}.{kind}.png" if EXT else "data:image/png;base64,"+r["imgs"][kind])
+                v=VER.get(r["id"],{}).get(kind)
+                vt=""
+                if v:
+                    conn = "1 assembly" if v["comps"]==1 else f'{v["comps"]} loose pieces'
+                    if kind=="illegal":
+                        if v["own"]:
+                            fires, cls = f'fires {r["id"]} as intended', "vok"
+                        elif not r["impl"]:
+                            other = ", ".join(x for x in v["fails"] if x!=r["id"])
+                            fires = f'no predicate yet — caught by {other}' if other else "no predicate yet"
+                            cls = "vna"
+                        else:
+                            fires, cls = "does NOT fire its rule", "vwarn"
+                    else:
+                        fires = "clean" if not v["fails"] else "fires "+", ".join(v["fails"])
+                        cls = "vok" if not v["own"] else "vwarn"
+                    vt=f'<span class="vchip {cls}">{v["edges"]} conn · {conn} · {fires}</span>'
+                cells+=f'<figure class="ex {kind}"><img src="{src}" alt="{lbl} exemplar for {r["id"]}" loading="lazy"><figcaption>{lbl}{vt}</figcaption></figure>'
         ex=f'<div class="exrow">{cells}</div>'
     elif r["nopic"]:
         ex=f'<p class="nopic">No exemplar image: {html.escape(r["nopic"])}.</p>'
@@ -80,7 +101,7 @@ T=INV["totals"]
 
 def plate(m):
     has3=m["mesh"] is not None
-    img=(f'<img src="data:image/png;base64,{m["png"]}" alt="Rendered view of {html.escape(m["n"])}" loading="lazy">'
+    img=(f'<img src="{("assets/renders/"+m["s"]+".png") if EXT else ("data:image/png;base64,"+m["png"])}" alt="Rendered view of {html.escape(m["n"])}" loading="lazy">'
          if m["png"] else '<div class="norender">not rendered</div>')
     btn=(f'<button class="shot live" data-set="{m["s"]}" aria-label="Open rotatable 3D view of {html.escape(m["n"])}">{img}<span class="spin">rotate ↻</span></button>'
          if has3 else f'<div class="shot">{img}</div>')
@@ -113,6 +134,8 @@ for key,label,range_,why in BANDS:
 </section>"""
 
 meshjson=json.dumps({m["s"]:m["mesh"] for m in D if m["mesh"]})
+THREE_TAG = '<script src="assets/three.iife.js"></script>' if EXT else ("<script>"+THREE+"</script>")
+MESH_INIT = "{}" if EXT else meshjson
 
 HTML=f"""<title>Corpus Specimen Plates</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -273,6 +296,11 @@ td{{font-variant-numeric:tabular-nums}}
 .ex img{{width:100%;height:auto;display:block}}
 .ex figcaption{{font-family:Archivo,sans-serif;font-size:.66rem;letter-spacing:.09em;
   text-transform:uppercase;color:var(--muted);font-weight:600;margin-top:5px;text-align:center}}
+.vchip{{display:block;margin-top:4px;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.6rem;letter-spacing:.01em;text-transform:none;font-weight:500;line-height:1.4;
+  padding:3px 5px;border-radius:3px;background:var(--chipbg,rgba(127,127,127,.1));color:var(--muted)}}
+.vchip.vok{{color:var(--ok,#3f9d63)}} .vchip.vwarn{{color:var(--excl)}}
+.vchip.vna{{opacity:.72;font-style:italic}}
 .nopic{{margin:10px 0 0;font-size:.88rem;color:var(--muted);font-style:italic}}
 
 .srcbox{{margin-top:12px;padding-top:10px;border-top:1px dashed var(--rule)}}
@@ -397,10 +425,10 @@ td{{font-variant-numeric:tabular-nums}}
   </div>
 </dialog>
 
-<script>{THREE}</script>
+{THREE_TAG}
 <script>
 (function(){{
-const MESH={meshjson};
+const MESH={MESH_INIT};
 const dlg=document.getElementById('dlg'),cv=document.getElementById('cv'),vt=document.getElementById('vt');
 let renderer,scene,camera,root,raf=0,yaw=.6,pitch=.35,dist=2.4,drag=null;
 function init(){{
@@ -418,11 +446,24 @@ async function inflate(b64){{
   const buf=await new Response(new Blob([u]).stream().pipeThrough(ds)).arrayBuffer();
   return new Int16Array(buf);
 }}
+const MC={{}};
+function loadMesh(id){{
+  if(MESH[id])return Promise.resolve(MESH[id]);
+  if(MC[id])return MC[id];
+  MC[id]=new Promise((res,rej)=>{{
+    const t=document.createElement('script');
+    t.src='assets/meshes/'+id+'.js';
+    t.onload=()=>{{const m=(window.__M||{{}})[id]; m?res(m):rej(new Error('mesh missing: '+id));}};
+    t.onerror=()=>rej(new Error('could not load mesh for '+id));
+    document.head.appendChild(t);
+  }});
+  return MC[id];
+}}
 async function load(id){{
   if(!renderer)init();
   if(root)scene.remove(root);
   root=new THREE.Group();
-  const m=MESH[id];
+  const m=await loadMesh(id);
   for(const g of m.groups){{
     const q=await inflate(g.d);
     const pos=new Float32Array(q.length);
