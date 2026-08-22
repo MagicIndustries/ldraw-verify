@@ -350,7 +350,7 @@ td{{font-variant-numeric:tabular-nums}}
 
 <section class="band">
   <header class="bandhead"><h2>Canon — the bottleneck</h2><span class="range">{T['canon_pairs']} to build · {T['impl']} done</span></header>
-  <p class="why">One illegal model and one legal near-twin per rule. A rule without a pair cannot be written test-first, which is why {T['canon_pairs']} of the corpus's 47 rules have no predicate today. {NIMG} pairs are rendered in the catalogue below; the rest are still to author.</p>
+  <p class="why">One illegal model and one legal near-twin per rule. A rule without a pair cannot be written test-first, which is why {T['canon_pairs']} of the corpus's {len(RD)} rules have no predicate today. {NIMG} pairs are rendered in the catalogue below; the rest are still to author.</p>
   <div class="tally">
     <div><div class="k">Ready to build</div><div class="v acc">{NREADY}</div><div class="u">unblocks its rule at once</div></div>
     <div><div class="k">Blocked</div><div class="v exc">{NBLOCK}</div><div class="u">missing a dependency</div></div>
@@ -361,7 +361,7 @@ td{{font-variant-numeric:tabular-nums}}
 
 
 <section class="band" id="rules">
-  <header class="bandhead"><h2>Every rule, described</h2><span class="range">47 rules · {NIMG} with exemplars</span></header>
+  <header class="bandhead"><h2>Every rule, described</h2><span class="range">{len(RD)} rules · {NIMG} with exemplars</span></header>
   <p class="why">The full build-rules corpus, with each rule's statement, the reasoning recorded against it, its predicate where one exists, and the parts it concerns. Where a rule is geometric, a minimal exemplar pair is rendered — illegal beside its legal near-twin. Where it isn't, the reason is stated rather than an image invented.</p>
 
   <p class="sub">Implemented — a predicate exists and runs today <span class="range">{NIMPL}</span></p>
