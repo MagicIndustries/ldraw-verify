@@ -1,0 +1,9 @@
+0 B-07 LEGAL: running bond, seams staggered
+0 Name: B-07.legal.ldr
+0 Author: ldraw-verify CANON
+1 14 0 -24 0 1 0 0 0 1 0 0 0 1 3004.dat
+1 14 40 -24 0 1 0 0 0 1 0 0 0 1 3004.dat
+1 4 -20 -48 0 1 0 0 0 1 0 0 0 1 3004.dat
+1 4 20 -48 0 1 0 0 0 1 0 0 0 1 3004.dat
+1 14 0 -72 0 1 0 0 0 1 0 0 0 1 3004.dat
+1 14 40 -72 0 1 0 0 0 1 0 0 0 1 3004.dat

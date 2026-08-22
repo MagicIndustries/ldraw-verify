@@ -1,0 +1,10 @@
+0 G-03 LEGAL: five stacked plates equal 40 LDU, exactly two studs of width
+0 Name: G-03.legal.ldr
+0 Author: ldraw-verify CANON
+1 4 0 -8 0 1 0 0 0 1 0 0 0 1 3024.dat
+1 4 0 -16 0 1 0 0 0 1 0 0 0 1 3024.dat
+1 4 0 -24 0 1 0 0 0 1 0 0 0 1 3024.dat
+1 4 0 -32 0 1 0 0 0 1 0 0 0 1 3024.dat
+1 4 0 -40 0 1 0 0 0 1 0 0 0 1 3024.dat
+1 14 60 -8 0 1 0 0 0 1 0 0 0 1 3023.dat
+1 7 60 0 0 1 0 0 0 1 0 0 0 1 3023.dat

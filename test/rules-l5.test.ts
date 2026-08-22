@@ -173,7 +173,7 @@ describe("B-01 no stud in a Technic pinhole", () => {
     );
     model.graph = {
       ...emptyGraph(2),
-      edges: [{ a: 0, b: 1, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6, femaleCaps: "none" }],
+      edges: [{ a: 0, b: 1, female: 1, male: 0, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6, maleRadius: 6, femaleCaps: "none" }],
     };
     const f = byId("B-01").run({ model, library: lib, meta: meta("B-01") });
     expect(f[0]!.status).toBe("fail");
@@ -197,7 +197,7 @@ describe("B-01 no stud in a Technic pinhole", () => {
     );
     model.graph = {
       ...emptyGraph(2),
-      edges: [{ a: 0, b: 1, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6, femaleCaps: "none", maleSlide: true }],
+      edges: [{ a: 0, b: 1, female: 1, male: 0, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6, maleRadius: 6, femaleCaps: "none", maleSlide: true }],
     };
     expect(byId("B-01").run({ model, library: lib, meta: meta("B-01") })).toHaveLength(0);
   });
@@ -221,7 +221,7 @@ describe("B-01 no stud in a Technic pinhole", () => {
     );
     model.graph = {
       ...emptyGraph(2),
-      edges: [{ a: 0, b: 1, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6, femaleCaps: "one" }],
+      edges: [{ a: 0, b: 1, female: 1, male: 0, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6, maleRadius: 6, femaleCaps: "one" }],
     };
     expect(byId("B-01").run({ model, library: lib, meta: meta("B-01") })).toHaveLength(0);
   });
@@ -237,7 +237,7 @@ describe("B-01 no stud in a Technic pinhole", () => {
       ),
       lib,
     );
-    model.graph = { ...emptyGraph(2), edges: [{ a: 0, b: 1, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6 }] };
+    model.graph = { ...emptyGraph(2), edges: [{ a: 0, b: 1, female: 1, male: 0, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6, maleRadius: 6 }] };
     expect(byId("B-01").run({ model, library: lib, meta: meta("B-01") })).toHaveLength(0);
   });
 
@@ -251,7 +251,7 @@ describe("B-01 no stud in a Technic pinhole", () => {
     );
     model.graph = {
       ...emptyGraph(2),
-      edges: [{ a: 0, b: 1, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6, femaleCaps: "none" }],
+      edges: [{ a: 0, b: 1, female: 1, male: 0, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6, maleRadius: 6, femaleCaps: "none" }],
     };
     expect(byId("B-01").run({ model, library: lib, meta: meta("B-01") })).toHaveLength(0);
   });
@@ -269,7 +269,7 @@ describe("B-01 no stud in a Technic pinhole", () => {
     // the far end is a Technic-hole part and it's a genuine through-hole.
     model.graph = {
       ...emptyGraph(2),
-      edges: [{ a: 0, b: 1, kind: "SNAP_CYL", at: [0, -34, 0], radius: 2, femaleCaps: "none" }],
+      edges: [{ a: 0, b: 1, female: 1, male: 0, kind: "SNAP_CYL", at: [0, -34, 0], radius: 2, maleRadius: 2, femaleCaps: "none" }],
     };
     expect(byId("B-01").run({ model, library: lib, meta: meta("B-01") })).toHaveLength(0);
   });
@@ -285,15 +285,13 @@ describe("B-01 no stud in a Technic pinhole", () => {
     expect(byId("B-01").run({ model, library: lib, meta: meta("B-01") })[0]!.status).toBe("unknown");
   });
 
-  // Finding 1: 3700.dat is itself a Technic-hole-class part (per
-  // data/part-classes.json) that also carries ordinary System studs, so two
-  // 3700.dat placements mating normally is realistic -- and both endpoints
-  // of the connecting edge are Technic-hole-class at once. The old
-  // both-orientations loop pushed a finding independently for each
-  // orientation where the *other* endpoint qualified, so this single
-  // physical connection produced two `fail` findings instead of one. No
-  // prior fixture caught this because every other test's non-target side is
-  // 3001.dat, which isn't Technic-hole-class.
+  // 3700.dat is itself a Technic-hole-class part that also carries ordinary
+  // System studs, so two 3700.dat placements mating normally is realistic --
+  // and both endpoints are Technic-hole-class at once. This once produced two
+  // findings for one connection, because the rule tried both orientations to
+  // see if EITHER end qualified. Reading `female` removes the ambiguity at
+  // source: there is only one socket, so there is only one orientation to
+  // consider. Kept as a regression guard on one-finding-per-connection.
   it("reports exactly one finding for one edge between two Technic-hole-class parts", () => {
     const model = resolveModel(
       parseDocument(
@@ -304,10 +302,59 @@ describe("B-01 no stud in a Technic pinhole", () => {
     );
     model.graph = {
       ...emptyGraph(2),
-      edges: [{ a: 0, b: 1, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6, femaleCaps: "none" }],
+      edges: [{ a: 0, b: 1, female: 1, male: 0, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6, maleRadius: 6, femaleCaps: "none" }],
     };
     const f = byId("B-01").run({ model, library: lib, meta: meta("B-01") });
     expect(f).toHaveLength(1);
     expect(f[0]!.status).toBe("fail");
+  });
+
+  // The false positive that produced all 33 of B-01's findings across the
+  // 1,464-model corpus, and zero true ones. `caps=none` means "open at both
+  // ends", which a hollow stud reports just as a Technic pinhole does. A
+  // 3062b (Brick 1x1 Round with Hollow Stud) stacked normally on a Technic
+  // brick pairs the ROUND BRICK's hollow anti-stud (the female, caps=none)
+  // with the Technic brick's ordinary top stud. The Technic brick's pinhole
+  // sits ten LDU away and is not party to the connection, but the old test
+  // -- "is either endpoint a Technic-hole part" -- blamed it anyway.
+  it("passes a hollow-stud round brick stacked on a Technic brick, where the caps=none female is the round brick's own bore", () => {
+    const model = resolveModel(
+      parseDocument(
+        ["1 4 0 -24 0 1 0 0 0 1 0 0 0 1 3062b.dat", "1 4 0 -48 0 1 0 0 0 1 0 0 0 1 3700.dat"].join("\n"),
+        "t.ldr",
+      ),
+      lib,
+    );
+    // female is placement 0, the round brick: its hollow bore is the socket,
+    // and the Technic brick supplies the stud. Same two parts as the failing
+    // fixture above; only which end is the socket differs.
+    model.graph = {
+      ...emptyGraph(2),
+      edges: [{ a: 0, b: 1, female: 0, male: 1, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6, maleRadius: 6, femaleCaps: "none" }],
+    };
+    expect(byId("B-01").run({ model, library: lib, meta: meta("B-01") })).toHaveLength(0);
+  });
+
+  // A Technic pin in a hole surfaces as three edges at one point, and only
+  // one carries slide=true. Reading maleSlide off a single edge misses the
+  // evidence on its duplicates, so a correctly seated pin was reported as a
+  // stud in a pinhole -- this is why the L-04.legal canon fixture fired B-01.
+  it("passes a seated pin whose slide=true evidence sits on a co-located duplicate edge", () => {
+    const model = resolveModel(
+      parseDocument(
+        ["1 4 0 -24 0 1 0 0 0 1 0 0 0 1 3673.dat", "1 4 0 -48 0 1 0 0 0 1 0 0 0 1 3700.dat"].join("\n"),
+        "t.ldr",
+      ),
+      lib,
+    );
+    model.graph = {
+      ...emptyGraph(2),
+      edges: [
+        { a: 0, b: 1, female: 1, male: 0, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6, maleRadius: 6, femaleCaps: "none", maleSlide: true },
+        { a: 0, b: 1, female: 1, male: 0, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6, maleRadius: 6, femaleCaps: "none" },
+        { a: 0, b: 1, female: 1, male: 0, kind: "SNAP_CYL", at: [0, -34, 0], radius: 6, maleRadius: 6, femaleCaps: "none" },
+      ],
+    };
+    expect(byId("B-01").run({ model, library: lib, meta: meta("B-01") })).toHaveLength(0);
   });
 });

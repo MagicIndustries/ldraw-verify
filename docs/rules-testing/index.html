@@ -1,0 +1,991 @@
+<title>Corpus Specimen Plates</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#EDF0F4; --surface:#FFFFFF; --sunk:#E2E7ED;
+  --ink:#0E1319; --ink-2:#4B5766; --muted:#6F7C8C; --rule:#D2D9E2;
+  --accent:#B4541E; --accent-soft:#F3E2D6;
+  --gold:#8A6D1F; --gold-soft:#F4EBD2;
+  --excl:#9B3340; --excl-soft:#F7DEE1;
+  --slate:#5A6472; --ok:#3F9D63;
+  --shadow:0 1px 2px rgba(14,19,25,.06),0 8px 24px rgba(14,19,25,.06);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#111519; --surface:#191E25; --sunk:#0C1014;
+  --ink:#E4E9F0; --ink-2:#98A5B4; --muted:#7A8797; --rule:#28303A;
+  --accent:#E07B41; --accent-soft:#3A2317;
+  --gold:#D6B45C; --gold-soft:#332A12;
+  --excl:#E2707E; --excl-soft:#3A1B20;
+  --slate:#8B96A6; --ok:#5FBE85;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.35);
+}}
+:root[data-theme="dark"]{
+  --ground:#111519; --surface:#191E25; --sunk:#0C1014;
+  --ink:#E4E9F0; --ink-2:#98A5B4; --muted:#7A8797; --rule:#28303A;
+  --accent:#E07B41; --accent-soft:#3A2317;
+  --gold:#D6B45C; --gold-soft:#332A12;
+  --excl:#E2707E; --excl-soft:#3A1B20;
+  --slate:#8B96A6; --ok:#5FBE85;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:"Source Serif 4",Georgia,serif;font-size:17px;line-height:1.6;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:56px 24px 110px}
+h1,h2,h3,.eyebrow,.set,.range,dt,.tag,.spin,button{font-family:Archivo,"Helvetica Neue",sans-serif}
+code,.set,.facts dd,.range{font-family:"IBM Plex Mono",ui-monospace,monospace}
+h1{font-size:clamp(2.1rem,5vw,3.3rem);font-weight:800;line-height:1.03;letter-spacing:-.025em;
+  text-wrap:balance;margin:0 0 18px}
+.eyebrow{font-size:.73rem;font-weight:600;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--accent);margin:0 0 16px}
+.stand{max-width:62ch;font-size:1.14rem;color:var(--ink-2);margin:0 0 10px}
+.stand strong{color:var(--ink);font-weight:600}
+.corpora{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:44px 0 8px}
+.corp{background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:16px 18px;
+  border-top:3px solid var(--slate)}
+.corp.gold{border-top-color:var(--gold)} .corp.canon{border-top-color:var(--accent)}
+.corp.inj{border-top-color:var(--accent)} .corp.wild{border-top-color:var(--excl)}
+.corp h3{margin:0 0 6px;font-size:.8rem;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+.corp .job{font-size:.97rem;color:var(--ink-2);margin:0}
+.corp .n{font-family:"IBM Plex Mono",monospace;font-size:1.5rem;font-weight:600;color:var(--ink);
+  display:block;margin-bottom:2px;font-variant-numeric:tabular-nums}
+.band{margin-top:64px;border-top:1px solid var(--rule);padding-top:26px}
+.bandhead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.bandhead h2{font-size:1.45rem;font-weight:700;letter-spacing:-.012em;margin:0}
+.range{font-size:.82rem;color:var(--muted);letter-spacing:.02em}
+.why{max-width:60ch;color:var(--ink-2);margin:8px 0 26px;font-size:1rem}
+.plates{display:flex;flex-direction:column;gap:18px}
+.plate{display:grid;grid-template-columns:236px 1fr;gap:24px;background:var(--surface);
+  border:1px solid var(--rule);border-radius:5px;padding:18px;box-shadow:var(--shadow)}
+.shot{background:var(--sunk);border-radius:4px;display:grid;place-items:center;padding:8px;
+  position:relative;border:0;width:100%;aspect-ratio:1}
+button.shot{cursor:pointer;transition:box-shadow .16s ease}
+button.shot:hover,button.shot:focus-visible{box-shadow:0 0 0 2px var(--accent)}
+button.shot:focus-visible{outline:none}
+.shot img{width:100%;height:auto;display:block}
+.norender{color:var(--muted);font-size:.85rem;font-family:Archivo,sans-serif}
+.spin{position:absolute;bottom:8px;right:8px;background:var(--accent);color:#fff;
+  font-size:.66rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  padding:3px 8px;border-radius:3px}
+.idline{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.set{font-size:.86rem;color:var(--accent);font-weight:600;background:var(--accent-soft);
+  padding:2px 7px;border-radius:3px}
+.plate h3{margin:0;font-size:1.22rem;font-weight:700;letter-spacing:-.012em}
+.repro{margin:6px 0 0;font-size:.9rem;color:var(--muted);font-style:italic}
+.facts{display:flex;gap:30px;margin:14px 0 12px;padding:12px 0;
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.facts div{display:flex;flex-direction:column;gap:1px}
+dt{font-size:.66rem;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);font-weight:600}
+dd{margin:0;font-size:1.06rem;font-variant-numeric:tabular-nums}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.tag{font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  background:var(--sunk);color:var(--ink-2);padding:3px 8px;border-radius:3px}
+.note{margin:0;font-size:.97rem;color:var(--ink-2);max-width:62ch}
+.note code,.why code,.stand code{background:var(--sunk);padding:1px 5px;border-radius:3px;font-size:.86em}
+.flex{margin-top:70px;border-top:3px solid var(--excl);padding-top:26px}
+.flex h2{font-size:1.45rem;margin:0 0 6px}
+.big{font-family:"IBM Plex Mono",monospace;font-size:clamp(2.6rem,7vw,4.2rem);font-weight:600;
+  color:var(--excl);line-height:1;font-variant-numeric:tabular-nums;margin:18px 0 4px}
+.bigl{font-size:.85rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;
+  font-family:Archivo,sans-serif;font-weight:600}
+.method{margin-top:64px;padding-top:22px;border-top:1px solid var(--rule);
+  font-size:.93rem;color:var(--muted);max-width:64ch}
+dialog{border:0;padding:0;background:transparent;max-width:none;max-height:none;width:100%;height:100%}
+dialog::backdrop{background:rgba(10,13,17,.82);backdrop-filter:blur(3px)}
+.viewer{width:min(92vw,860px);height:min(88vh,860px);margin:auto;background:var(--surface);
+  border-radius:6px;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+.vhead{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--rule)}
+.vhead h3{margin:0;font-size:1rem;font-weight:700}
+.vhead .hint{margin-left:auto;font-size:.76rem;color:var(--muted);font-family:Archivo,sans-serif}
+.vclose{background:var(--sunk);border:0;color:var(--ink);border-radius:4px;padding:6px 12px;
+  cursor:pointer;font-size:.8rem;font-weight:600}
+.vclose:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#cv{flex:1;display:block;width:100%;cursor:grab;background:var(--sunk)}
+#cv:active{cursor:grabbing}
+
+.tally{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);border-radius:5px;overflow:hidden;margin:14px 0 6px}
+.tally div{background:var(--surface);padding:15px 16px}
+.tally .k{font-family:Archivo,sans-serif;font-size:.66rem;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;margin-bottom:5px}
+.tally .v{font-family:"IBM Plex Mono",monospace;font-size:1.85rem;font-weight:600;line-height:1;
+  font-variant-numeric:tabular-nums}
+.tally .u{font-size:.8rem;color:var(--muted);margin-top:3px}
+.tally .v.acc{color:var(--accent)} .tally .v.gld{color:var(--gold)} .tally .v.exc{color:var(--excl)}
+.tw{overflow-x:auto;margin:16px 0 6px;border:1px solid var(--rule);border-radius:5px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-family:Archivo,sans-serif;font-size:.66rem;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;background:var(--sunk);position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+td code{font-family:"IBM Plex Mono",monospace;font-size:.84rem;color:var(--accent)}
+td{font-variant-numeric:tabular-nums}
+.neg{color:var(--excl)} .tgt{color:var(--gold);font-weight:600}
+.pill{font-family:Archivo,sans-serif;font-size:.63rem;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;padding:2px 7px;border-radius:3px}
+.pill.hard{background:var(--excl-soft);color:var(--excl)}
+.pill.disc{background:var(--gold-soft);color:var(--gold)}
+.pill.legal{background:var(--sunk);color:var(--ink-2)}
+.sub{font-size:1.05rem;font-weight:700;font-family:Archivo,sans-serif;margin:26px 0 2px}
+.cap{max-width:62ch;color:var(--ink-2);margin:4px 0 0;font-size:.97rem}
+.scroller{max-height:340px;overflow-y:auto}
+
+.rule{background:var(--surface);border:1px solid var(--rule);border-radius:5px;padding:16px 18px;margin-bottom:14px}
+.rhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.rid{font-family:"IBM Plex Mono",monospace;font-size:.84rem;font-weight:600;color:var(--accent);
+  background:var(--accent-soft);padding:2px 7px;border-radius:3px}
+.rule h3{margin:0;font-size:1.06rem;font-weight:700;letter-spacing:-.01em}
+.srcs{margin-left:auto;font-family:Archivo,sans-serif;font-size:.68rem;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted);font-weight:600}
+.pill.done{background:var(--sunk);color:var(--ink-2)}
+.rstmt{margin:0 0 8px;font-size:1.02rem;max-width:66ch}
+.rnote{margin:0 0 10px;font-size:.93rem;color:var(--ink-2);max-width:70ch;
+  border-left:2px solid var(--rule);padding-left:12px}
+.kv{display:flex;gap:10px;align-items:baseline;margin:3px 0;flex-wrap:wrap}
+.kk{font-family:Archivo,sans-serif;font-size:.63rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;min-width:82px}
+.kv code{font-family:"IBM Plex Mono",monospace;font-size:.8rem;color:var(--ink-2);
+  background:var(--sunk);padding:2px 7px;border-radius:3px;overflow-wrap:anywhere}
+.exrow{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap}
+.ex{margin:0;width:190px;background:var(--sunk);border-radius:4px;padding:6px;
+  border-top:3px solid var(--rule)}
+.ex.illegal{border-top-color:var(--excl)} .ex.legal{border-top-color:var(--ok,#3f9d63)}
+.ex img{width:100%;height:auto;display:block}
+.ex figcaption{font-family:Archivo,sans-serif;font-size:.66rem;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;margin-top:5px;text-align:center}
+.vchip{display:block;margin-top:4px;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.6rem;letter-spacing:.01em;text-transform:none;font-weight:500;line-height:1.4;
+  padding:3px 5px;border-radius:3px;background:var(--chipbg,rgba(127,127,127,.1));color:var(--muted)}
+.vchip.vok{color:var(--ok,#3f9d63)} .vchip.vwarn{color:var(--excl)}
+.vchip.vna{opacity:.72;font-style:italic}
+.nopic{margin:10px 0 0;font-size:.88rem;color:var(--muted);font-style:italic}
+
+.srcbox{margin-top:12px;padding-top:10px;border-top:1px dashed var(--rule)}
+.srcbox ul{margin:5px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
+.srcbox li{font-size:.86rem}
+.srcbox a{color:var(--accent-ink,var(--accent));text-decoration:none;border-bottom:1px solid transparent}
+.srcbox a:hover,.srcbox a:focus-visible{border-bottom-color:currentColor}
+.plinks{display:flex;flex-wrap:wrap;gap:5px}
+.plinks a{font-family:"IBM Plex Mono",monospace;font-size:.78rem;background:var(--sunk);
+  color:var(--ink-2);padding:2px 7px;border-radius:3px;text-decoration:none}
+.plinks a:hover,.plinks a:focus-visible{color:var(--accent);outline:none;box-shadow:0 0 0 1px var(--accent)}
+@media (max-width:720px){
+  .plate{grid-template-columns:1fr}
+  .wrap{padding:36px 16px 80px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<div class="wrap">
+<p class="eyebrow">ldraw-verify · corpus assembly</p>
+<h1>Which models we test against, and what each one is for</h1>
+<p class="stand">Fifteen candidate models from the 1,464-model Official Model Repository pull, chosen to span the properties the rules actually exercise — not for variety. Every render below is generated from the model's own geometry by the verifier's resolver. <strong>Seven are rotatable</strong>: click any plate marked <em>rotate</em>.</p>
+<p class="stand">Each plate credits the person who <em>reproduced</em> the set. That attribution is the point: these are fan reproductions, not LEGO's own CAD data, which is exactly why a clean result against them is evidence rather than proof.</p>
+
+<div class="corpora">
+  <div class="corp canon"><h3>Canon</h3><span class="n">~16</span><p class="job">Berard-deck reproductions. Authoritative illegal exemplars. Proves a rule fires at all.</p></div>
+  <div class="corp inj"><h3>Injected</h3><span class="n">~300</span><p class="job">One recorded mutation into a verified host. Proves detection survives real noise.</p></div>
+  <div class="corp gold"><h3>Gold</h3><span class="n">40–80</span><p class="job">Verified reproductions. A HARD hit here is a genuine false positive.</p></div>
+  <div class="corp wild"><h3>Wild</h3><span class="n">1,464</span><p class="job">The full pull. Regression and performance only — never an oracle.</p></div>
+</div>
+
+
+<section class="band" id="need">
+  <header class="bandhead"><h2>What we need to assemble</h2><span class="range">complete requirement</span></header>
+  <p class="why">Counts, not samples. Every figure below is computed from the 1,464-model corpus and the 46-rule build-rules file, not estimated.</p>
+  <div class="tally">
+    <div><div class="k">Canon pairs</div><div class="v acc">30</div><div class="u">62 files to author</div></div>
+    <div><div class="k">Already fixtured</div><div class="v">11</div><div class="u">rules with a pair today</div></div>
+    <div><div class="k">Gold models</div><div class="v gld">60</div><div class="u">of 1,264 eligible</div></div>
+    <div><div class="k">Hand-verified</div><div class="v gld">20</div><div class="u">≈12–15 hours</div></div>
+    <div><div class="k">Injected</div><div class="v acc">300</div><div class="u">generated, not stored</div></div>
+    <div><div class="k">Excluded</div><div class="v exc">200</div><div class="u">flex-path, 13.7%</div></div>
+  </div>
+</section>
+
+<section class="band">
+  <header class="bandhead"><h2>Canon — the bottleneck</h2><span class="range">30 to build · 11 done</span></header>
+  <p class="why">One illegal model and one legal near-twin per rule. A rule without a pair cannot be written test-first, which is why 30 of the corpus's 46 rules have no predicate today. 18 pairs are rendered in the catalogue below; the rest are still to author.</p>
+  <div class="tally">
+    <div><div class="k">Ready to build</div><div class="v acc">18</div><div class="u">unblocks its rule at once</div></div>
+    <div><div class="k">Blocked</div><div class="v exc">12</div><div class="u">missing a dependency</div></div>
+    <div><div class="k">Legal twins</div><div class="v">5</div><div class="u">the sharpest tests</div></div>
+    <div><div class="k">Exemplars drawn</div><div class="v gld">18</div><div class="u">rendered below</div></div>
+  </div>
+</section>
+
+
+<section class="band" id="rules">
+  <header class="bandhead"><h2>Every rule, described</h2><span class="range">46 rules · 18 with exemplars</span></header>
+  <p class="why">The full build-rules corpus, with each rule's statement, the reasoning recorded against it, its predicate where one exists, and the parts it concerns. Where a rule is geometric, a minimal exemplar pair is rendered — illegal beside its legal near-twin. Where it isn't, the reason is stated rather than an image invented.</p>
+
+  <p class="sub">Implemented — a predicate exists and runs today <span class="range">11</span></p>
+  <article class="rule" id="rule-B-06">
+  <div class="rhead"><code class="rid">B-06</code><h3>NO_FLOATING_PARTS</h3>
+    <span class="pill hard">hard</span><span class="pill done">implemented</span>
+    <span class="srcs">assets/exemplars/B-06.legal.png</span></div>
+  <p class="rstmt">Every element must be connected to the model.</p>
+  <p class="rnote">Every element must be physically attached to the rest of the model. A part with nothing holding it is either a mistake or a piece that would simply fall off when the model was lifted. This is the most common failure of a naive generator, which places parts at plausible coordinates without ever checking that something holds them there.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>count(connected_components) == 1</code></div><div class="kv"><span class="kk">Check kind</span><code>graph</code></div>
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/B-06.illegal.png" alt="Illegal exemplar for B-06" loading="lazy"><figcaption>Illegal<span class="vchip vok">0 conn · 2 loose pieces · fires B-06 as intended</span></figcaption></figure><figure class="ex legal"><img src="assets/exemplars/B-06.legal.png" alt="Legal exemplar for B-06" loading="lazy"><figcaption>Legal<span class="vchip vok">8 conn · 1 assembly · clean — no rule fires</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.bricklink.com/v3/designer-program/guidelines.page?guideline=series-4" target="_blank" rel="noopener">BrickLink Designer Program guidelines</a></li><li><a href="https://www.bricklink.com/v3/designer-program/terms_of_service.page" target="_blank" rel="noopener">BrickLink Designer Program terms</a></li></ul></div>
+</article><article class="rule" id="rule-B-01">
+  <div class="rhead"><code class="rid">B-01</code><h3>NO_STUD_IN_PINHOLE</h3>
+    <span class="pill hard">hard</span><span class="pill done">implemented</span>
+    <span class="srcs">assets/exemplars/B-01.legal.png</span></div>
+  <p class="rstmt">A System stud may not be inserted into a Technic pinhole.</p>
+  <p class="rnote">A System stud must not be driven into a Technic pin hole. The hole is bored for a pin, not a stud, and forcing one in stresses both parts. Current first-party rules ban this outright — a stricter position than the 2006 presentation, which called it legal but inadvisable. Older sets built before the ban may contain it legitimately.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>no edge of type stud-&gt;technic_hole exists</code></div><div class="kv"><span class="kk">Parts</span><span class="plinks"><a href="https://library.ldraw.org/library/official/parts/3700.dat" target="_blank" rel="noopener">3700</a> <a href="https://library.ldraw.org/library/official/parts/3701.dat" target="_blank" rel="noopener">3701</a> <a href="https://library.ldraw.org/library/official/parts/3702.dat" target="_blank" rel="noopener">3702</a> <a href="https://library.ldraw.org/library/official/parts/3894.dat" target="_blank" rel="noopener">3894</a> <a href="https://library.ldraw.org/library/official/parts/6541.dat" target="_blank" rel="noopener">6541</a> <a href="https://library.ldraw.org/library/official/parts/32000.dat" target="_blank" rel="noopener">32000</a></span></div><div class="kv"><span class="kk">Check kind</span><code>graph</code></div>
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/B-01.illegal.png" alt="Illegal exemplar for B-01" loading="lazy"><figcaption>Illegal<span class="vchip vok">1 conn · 1 assembly · fires B-01 as intended</span></figcaption></figure><figure class="ex legal"><img src="assets/exemplars/B-01.legal.png" alt="Legal exemplar for B-01" loading="lazy"><figcaption>Legal<span class="vchip vok">2 conn · 1 assembly · clean — no rule fires</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.bricklink.com/v3/designer-program/guidelines.page?guideline=series-4" target="_blank" rel="noopener">BrickLink Designer Program guidelines</a></li><li><a href="https://www.bricklink.com/v3/designer-program/terms_of_service.page" target="_blank" rel="noopener">BrickLink Designer Program terms</a></li><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li></ul></div>
+</article><article class="rule" id="rule-B-05">
+  <div class="rhead"><code class="rid">B-05</code><h3>NO_FRACTIONAL_ROTATION</h3>
+    <span class="pill hard">hard</span><span class="pill done">implemented</span>
+    <span class="srcs">assets/exemplars/B-05.legal.png</span></div>
+  <p class="rstmt">Parts may not be positioned at sub-detent rotations.</p>
+  <p class="rnote">A part held by a single stud must sit at a detent — a quarter turn. Between detents nothing locates it: the part is held only by friction on the stud&#x27;s shoulder and will drift out of position. Parts that are rotationally symmetric about their connection axis are exempt, because on those a rotation is not an observable difference.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>for single-stud parts, yaw mod 90 == 0</code></div><div class="kv"><span class="kk">Check kind</span><code>transform</code></div>
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/B-05.illegal.png" alt="Illegal exemplar for B-05" loading="lazy"><figcaption>Illegal<span class="vchip vok">2 conn · 1 assembly · fires B-05 as intended</span></figcaption></figure><figure class="ex legal"><img src="assets/exemplars/B-05.legal.png" alt="Legal exemplar for B-05" loading="lazy"><figcaption>Legal<span class="vchip vok">2 conn · 1 assembly · clean — no rule fires</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.bricklink.com/v3/designer-program/guidelines.page?guideline=series-4" target="_blank" rel="noopener">BrickLink Designer Program guidelines</a></li><li><a href="https://www.bricklink.com/v3/designer-program/terms_of_service.page" target="_blank" rel="noopener">BrickLink Designer Program terms</a></li></ul></div>
+</article><article class="rule" id="rule-E-01">
+  <div class="rhead"><code class="rid">E-01</code><h3>MATRIX_WELL_FORMED</h3>
+    <span class="pill hard">hard</span><span class="pill done">implemented</span>
+    <span class="srcs">assets/exemplars/E-01.legal.png</span></div>
+  <p class="rstmt">The 9 matrix values are ROW-major: (a,b,c) is the first row. (a,d,g) is the image of the X axis.</p>
+  <p class="rnote">A part&#x27;s placement matrix must be a well-formed rigid transform — a rotation, optionally mirrored, with no shear and no scaling. It cannot detect a transposed matrix: the transpose of a rotation is its inverse, which is itself a perfectly well-formed rotation, just the wrong one.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>det(R) == +1 AND R * transpose(R) == I</code></div><div class="kv"><span class="kk">Check kind</span><code>transform</code></div>
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/E-01.illegal.png" alt="Illegal exemplar for E-01" loading="lazy"><figcaption>Illegal<span class="vchip vok">0 conn · 1 assembly · fires E-01 as intended</span></figcaption></figure><figure class="ex legal"><img src="assets/exemplars/E-01.legal.png" alt="Legal exemplar for E-01" loading="lazy"><figcaption>Legal<span class="vchip vok">0 conn · 1 assembly · clean — no rule fires</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.ldraw.org/article/218.html" target="_blank" rel="noopener">LDraw File Format 1.0.2</a></li></ul></div>
+</article><article class="rule" id="rule-E-02">
+  <div class="rhead"><code class="rid">E-02</code><h3>Y_IS_UP_NEGATIVE</h3>
+    <span class="pill disc">discouraged</span><span class="pill done">implemented</span>
+    <span class="srcs">assets/exemplars/E-02.legal.png</span></div>
+  <p class="rstmt">-Y is up. Stack upward by decreasing Y. Part origin sits on the TOP face.</p>
+  <p class="rnote">Vertical placements must sit on the system&#x27;s own lattice. In LDraw, negative Y is up, a part&#x27;s origin sits on its top face, and stacking never adds the stud height — a brick on a brick is exactly 24 LDU, because the stud is swallowed by the tube beneath it.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>y mod 2 == 0</code></div><div class="kv"><span class="kk">Check kind</span><code>grid</code></div>
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/E-02.illegal.png" alt="Illegal exemplar for E-02" loading="lazy"><figcaption>Illegal<span class="vchip vok">0 conn · 2 loose pieces · fires E-02 as intended</span></figcaption></figure><figure class="ex legal"><img src="assets/exemplars/E-02.legal.png" alt="Legal exemplar for E-02" loading="lazy"><figcaption>Legal<span class="vchip vok">8 conn · 1 assembly · clean — no rule fires</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.ldraw.org/article/218.html" target="_blank" rel="noopener">LDraw File Format 1.0.2</a></li></ul></div>
+</article><article class="rule" id="rule-E-03">
+  <div class="rhead"><code class="rid">E-03</code><h3>MODEL_COLOUR_CONCRETE</h3>
+    <span class="pill hard">hard</span><span class="pill done">implemented</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">Model type-1 lines use concrete colour codes. Parts use 16. Colour 24 never appears on a type-1 line.</p>
+  <p class="rnote">A model&#x27;s own part references must carry a real colour. Colour 16 means \u201cinherit from whoever placed me\u201d, and the top-level model has no such caller, so a 16 there resolves to a fallback mustard rather than the intended colour. Colour 24 is the edge colour and never belongs on a part reference at all.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>colour != 16 AND colour != 24 at top level</code></div><div class="kv"><span class="kk">Check kind</span><code>transform</code></div>
+  <p class="nopic">No exemplar image: not geometric — a colour code, invisible in a render.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.ldraw.org/article/218.html" target="_blank" rel="noopener">LDraw File Format 1.0.2</a></li><li><a href="https://www.ldraw.org/article/299.html" target="_blank" rel="noopener">LDraw Colour Definition extension</a></li></ul></div>
+</article><article class="rule" id="rule-E-04">
+  <div class="rhead"><code class="rid">E-04</code><h3>GRID_ALIGNMENT</h3>
+    <span class="pill disc">discouraged</span><span class="pill done">implemented</span>
+    <span class="srcs">assets/exemplars/E-04.legal.png</span></div>
+  <p class="rstmt">Placements land on the System&#x27;s own 2 LDU lattice. The ordinary studs-up lattice is 10 in X/Z and 4 in Y, but SNOT and Technic constructions legitimately land between.</p>
+  <p class="rnote">Horizontal placements should sit on the system&#x27;s lattice. Deliberate offsets are ordinary — jumper plates and sideways building both leave it on purpose — so this reports rather than blocks.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>x mod 2 == 0 AND z mod 2 == 0</code></div><div class="kv"><span class="kk">Check kind</span><code>grid</code></div>
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/E-04.illegal.png" alt="Illegal exemplar for E-04" loading="lazy"><figcaption>Illegal<span class="vchip vok">0 conn · 2 loose pieces · fires E-04 as intended</span></figcaption></figure><figure class="ex legal"><img src="assets/exemplars/E-04.legal.png" alt="Legal exemplar for E-04" loading="lazy"><figcaption>Legal<span class="vchip vok">1 conn · 1 assembly · clean — no rule fires</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.ldraw.org/article/218.html" target="_blank" rel="noopener">LDraw File Format 1.0.2</a></li><li><a href="https://bricknerd.com/home/snot-basics-geometry-techniques-and-pitfalls-3-18-2021" target="_blank" rel="noopener">SNOT basics: geometry, techniques and pitfalls (BrickNerd)</a></li></ul></div>
+</article><article class="rule" id="rule-E-05">
+  <div class="rhead"><code class="rid">E-05</code><h3>MPD_STRUCTURE</h3>
+    <span class="pill hard">hard</span><span class="pill done">implemented</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">First 0 FILE block is the main model. Blocks are a flat list; nesting is by reference only.</p>
+  <p class="rnote">A multi-part document is a flat list of named blocks, the first of which is the model itself. Blocks nest by reference, never by being written inside one another, and nothing may appear before the first block opens.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>no content before first 0 FILE; no duplicate FILE names; reference graph acyclic</code></div><div class="kv"><span class="kk">Check kind</span><code>transform</code></div>
+  <p class="nopic">No exemplar image: not geometric — file structure, not shape.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.ldraw.org/article/47.html" target="_blank" rel="noopener">LDraw MPD specification</a></li><li><a href="https://www.ldraw.org/article/218.html" target="_blank" rel="noopener">LDraw File Format 1.0.2</a></li></ul></div>
+</article><article class="rule" id="rule-E-07">
+  <div class="rhead"><code class="rid">E-07</code><h3>NO_DEPRECATED_PARTS</h3>
+    <span class="pill disc">discouraged</span><span class="pill done">implemented</span>
+    <span class="srcs">assets/exemplars/E-07.legal.png</span></div>
+  <p class="rstmt">Do not reference ~Moved to aliases or ~-prefixed hidden parts.</p>
+  <p class="rnote">A part that has been superseded should be referenced by its replacement rather than its old number. The old number still renders, so this is a cataloguing matter rather than a build defect — but roughly a sixth of the parts directory is superseded or hidden entries that no new model should be reaching for.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>reject any part whose description line starts with &#x27;0 ~&#x27;</code></div><div class="kv"><span class="kk">Check kind</span><code>part_identity</code></div>
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/E-07.illegal.png" alt="Illegal exemplar for E-07" loading="lazy"><figcaption>Illegal<span class="vchip vok">0 conn · 1 assembly · fires E-07 as intended</span></figcaption></figure><figure class="ex legal"><img src="assets/exemplars/E-07.legal.png" alt="Legal exemplar for E-07" loading="lazy"><figcaption>Legal<span class="vchip vok">0 conn · 1 assembly · clean — no rule fires</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://library.ldraw.org/documentation/ldraworg-official-parts-library-standards/general" target="_blank" rel="noopener">LDraw official parts library standards</a></li></ul></div>
+</article><article class="rule" id="rule-E-08">
+  <div class="rhead"><code class="rid">E-08</code><h3>PART_NUMBERS_RESOLVED</h3>
+    <span class="pill hard">hard</span><span class="pill done">implemented</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">Never invent part numbers. Resolve against the real library.</p>
+  <p class="rnote">Every part reference must resolve to a real part. An invented or mistyped number renders as nothing at all, so the model is quietly missing a piece rather than visibly wrong.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>GET https://library.ldraw.org/library/official/parts/&lt;num&gt;.dat returns 200</code></div><div class="kv"><span class="kk">Check kind</span><code>part_identity</code></div>
+  <p class="nopic">No exemplar image: not geometric — an unresolvable part number renders as nothing at all.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://library.ldraw.org/documentation/ldraworg-official-parts-library-standards/general" target="_blank" rel="noopener">LDraw official parts library standards</a></li><li><a href="https://www.ldraw.org/article/218.html" target="_blank" rel="noopener">LDraw File Format 1.0.2</a></li></ul></div>
+</article><article class="rule" id="rule-E-10">
+  <div class="rhead"><code class="rid">E-10</code><h3>FILE_PARSES</h3>
+    <span class="pill hard">hard</span><span class="pill done">implemented</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">Every line must be a valid LDraw line type with the correct token count and numeric fields.</p>
+  <p class="rnote">Every line must be a valid LDraw line: a recognised type, the right number of fields, and numbers where numbers belong. Without this, a malformed line is noticed by the parser and then quietly discarded.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>no tokenizer error remains unreported</code></div><div class="kv"><span class="kk">Check kind</span><code>transform</code></div>
+  <p class="nopic">No exemplar image: not geometric — a malformed text line.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.ldraw.org/article/218.html" target="_blank" rel="noopener">LDraw File Format 1.0.2</a></li></ul></div>
+</article>
+
+  <p class="sub">Ready to build — needs only an exemplar pair <span class="range">18</span></p>
+  <article class="rule" id="rule-B-03">
+  <div class="rhead"><code class="rid">B-03</code><h3>SNOT_LOGO_CLEARANCE</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">Nothing may be placed against the face a stud points into; the moulded wordmark adds ~0.14 mm to every stud.</p>
+  <p class="rnote">Nothing may be placed flat against the face a stud points into. The moulded wordmark on the stud&#x27;s crown stands roughly 0.14 mm proud, so a surface pressed against it bears on the lettering rather than on the stud itself. Two first-party sources twenty years apart give the same warning.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>inflate stud radius by 0.35 LDU, then test interference EXCLUDING declared mating hotspot pairs</code></div><div class="kv"><span class="kk">Parts</span><span class="plinks"><a href="https://library.ldraw.org/library/official/parts/4070.dat" target="_blank" rel="noopener">4070</a></span></div><div class="kv"><span class="kk">Check kind</span><code>mesh</code></div>
+  <p class="nopic">Exemplar not yet authored.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.bricklink.com/v3/designer-program/guidelines.page?guideline=series-4" target="_blank" rel="noopener">BrickLink Designer Program guidelines</a></li><li><a href="https://www.bricklink.com/v3/designer-program/terms_of_service.page" target="_blank" rel="noopener">BrickLink Designer Program terms</a></li><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://brickset.com/article/129979/former-lego-designer-finds-illegal-technique-in-new-model" target="_blank" rel="noopener">Former LEGO designer finds an illegal technique in a current set (Brickset)</a></li></ul></div>
+</article><article class="rule" id="rule-B-07">
+  <div class="rhead"><code class="rid">B-07</code><h3>MASONRY_BOND</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">assets/exemplars/B-07.legal.png</span></div>
+  <p class="rstmt">Courses must overlap; vertical seams must not repeat between adjacent courses.</p>
+  <p class="rnote">Courses must overlap, and a vertical seam must not repeat between adjacent courses. A column of aligned seams is a fracture line running through the wall, exactly as it is in bricklaying — the overlap is what carries load across the joint.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>no coincident vertical seam x between adjacent courses; min overlap 2 studs</code></div><div class="kv"><span class="kk">Check kind</span><code>grid</code></div>
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/B-07.illegal.png" alt="Illegal exemplar for B-07" loading="lazy"><figcaption>Illegal<span class="vchip vna">32 conn · 2 loose pieces · no predicate yet</span></figcaption></figure><figure class="ex legal"><img src="assets/exemplars/B-07.legal.png" alt="Legal exemplar for B-07" loading="lazy"><figcaption>Legal<span class="vchip vok">24 conn · 1 assembly · clean — no rule fires</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.bricklink.com/v3/designer-program/guidelines.page?guideline=series-4" target="_blank" rel="noopener">BrickLink Designer Program guidelines</a></li><li><a href="https://www.bricklink.com/v3/designer-program/terms_of_service.page" target="_blank" rel="noopener">BrickLink Designer Program terms</a></li><li><a href="https://www.lego.com/en-us/service/help-topics/article/building-tips-for-master-builders" target="_blank" rel="noopener">LEGO: building tips for master builders</a></li></ul></div>
+</article><article class="rule" id="rule-L-09">
+  <div class="rhead"><code class="rid">L-09</code><h3>RECEIVER_SMALLER_THAN_CONNECTOR</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">The receiving element must not be smaller than what is pushed into it.</p>
+  <p class="rnote">A connector must not be pushed into a receiver smaller than itself. This is the one rule in the corpus that a plain geometric interference test can catch, because the overlap is real rather than a fraction of a millimetre.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>mesh intersection</code></div><div class="kv"><span class="kk">Check kind</span><code>mesh</code></div>
+  <p class="nopic">Exemplar not yet authored.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://ramblingbrick.com/2017/07/29/stressed-by-the-elements-saturn-v-tiles-plates-and-the-legality-of-connections/" target="_blank" rel="noopener">Berard on the deck being superseded (The Rambling Brick, 2017)</a></li><li><a href="https://swooshable.com/other-resources/stressing-the-elements" target="_blank" rel="noopener">Deck index (Swooshable)</a></li></ul></div>
+</article><article class="rule" id="rule-L-02">
+  <div class="rhead"><code class="rid">L-02</code><h3>TECHNIC_HOLE_BRIDGED</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">A System stud in a Technic hole may not be bridged.</p>
+  <p class="rnote">A stud sitting in a Technic hole must not be fixed at both ends. Bridging it removes the small amount of give that made the connection tolerable, and the parts then fight each other.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>connection-graph degree</code></div><div class="kv"><span class="kk">Parts</span><span class="plinks"><a href="https://library.ldraw.org/library/official/parts/3700.dat" target="_blank" rel="noopener">3700</a> <a href="https://library.ldraw.org/library/official/parts/3894.dat" target="_blank" rel="noopener">3894</a> <a href="https://library.ldraw.org/library/official/parts/6541.dat" target="_blank" rel="noopener">6541</a></span></div><div class="kv"><span class="kk">Check kind</span><code>graph</code></div>
+  <p class="nopic">Exemplar not yet authored.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://ramblingbrick.com/2017/07/29/stressed-by-the-elements-saturn-v-tiles-plates-and-the-legality-of-connections/" target="_blank" rel="noopener">Berard on the deck being superseded (The Rambling Brick, 2017)</a></li><li><a href="https://swooshable.com/other-resources/stressing-the-elements" target="_blank" rel="noopener">Deck index (Swooshable)</a></li><li><a href="https://www.lego.com/en-us/service/help-topics/article/tips-for-building-with-lego-technic-elements" target="_blank" rel="noopener">LEGO: tips for building with Technic elements</a></li></ul></div>
+</article><article class="rule" id="rule-L-10">
+  <div class="rhead"><code class="rid">L-10</code><h3>PLATE_BETWEEN_STUDS</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">assets/exemplars/L-10.legal.png</span></div>
+  <p class="rstmt">A plate may not be wedged edge-on between two studs.</p>
+  <p class="rnote">A plate may not be wedged edge-on between two studs, although a tile in exactly that position is permitted. The two are indistinguishable by shape in LDraw — only the part class separates them. That makes this the sharpest available test of whether a checker is reasoning about what a part is, or merely matching where it sits.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>part_class == plate AND orientation == edge_on AND wedged between studs</code></div><div class="kv"><span class="kk">Parts</span><span class="plinks"><a href="https://library.ldraw.org/library/official/parts/3020.dat" target="_blank" rel="noopener">3020</a> <a href="https://library.ldraw.org/library/official/parts/3023b.dat" target="_blank" rel="noopener">3023b</a> <a href="https://library.ldraw.org/library/official/parts/3024.dat" target="_blank" rel="noopener">3024</a> <a href="https://library.ldraw.org/library/official/parts/87580.dat" target="_blank" rel="noopener">87580</a></span></div><div class="kv"><span class="kk">Check kind</span><code>part_identity</code></div>
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/L-10.illegal.png" alt="Illegal exemplar for L-10" loading="lazy"><figcaption>Illegal<span class="vchip vna">4 conn · 2 loose pieces · no predicate yet — caught by B-06</span></figcaption></figure><figure class="ex legal"><img src="assets/exemplars/L-10.legal.png" alt="Legal exemplar for L-10" loading="lazy"><figcaption>Legal</figcaption></figure></div><p class="nopic">Shown beside G-01, the legal tile in identical geometry — the pair differs only by part class.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://ramblingbrick.com/2017/07/29/stressed-by-the-elements-saturn-v-tiles-plates-and-the-legality-of-connections/" target="_blank" rel="noopener">Berard on the deck being superseded (The Rambling Brick, 2017)</a></li><li><a href="https://swooshable.com/other-resources/stressing-the-elements" target="_blank" rel="noopener">Deck index (Swooshable)</a></li><li><a href="https://bricknerd.com/home/illegal-snot-stressful-techniques-for-sideways-building-9-7-23" target="_blank" rel="noopener">Illegal SNOT: stressful techniques for sideways building (BrickNerd)</a></li></ul></div>
+</article><article class="rule" id="rule-L-07">
+  <div class="rhead"><code class="rid">L-07</code><h3>CLICK_HINGE_OFF_DETENT</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">assets/exemplars/L-07.legal.png</span></div>
+  <p class="rstmt">Click hinges may only be set at multiples of 22.5 degrees.</p>
+  <p class="rnote">A click hinge may only be left on a detent — a multiple of 22.5 degrees. Between positions it rests on the tooth crests rather than seating in the valleys, and the teeth wear.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>rotation mod 22.5 == 0</code></div><div class="kv"><span class="kk">Check kind</span><code>transform</code></div>
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/L-07.illegal.png" alt="Illegal exemplar for L-07" loading="lazy"><figcaption>Illegal<span class="vchip vna">1 conn · 1 assembly · no predicate yet</span></figcaption></figure><figure class="ex legal"><img src="assets/exemplars/L-07.legal.png" alt="Legal exemplar for L-07" loading="lazy"><figcaption>Legal<span class="vchip vok">1 conn · 1 assembly · clean — no rule fires</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://ramblingbrick.com/2017/07/29/stressed-by-the-elements-saturn-v-tiles-plates-and-the-legality-of-connections/" target="_blank" rel="noopener">Berard on the deck being superseded (The Rambling Brick, 2017)</a></li><li><a href="https://swooshable.com/other-resources/stressing-the-elements" target="_blank" rel="noopener">Deck index (Swooshable)</a></li></ul></div>
+</article><article class="rule" id="rule-L-04">
+  <div class="rhead"><code class="rid">L-04</code><h3>PIN_NOT_IN_CLICK</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">assets/exemplars/L-04.legal.png</span></div>
+  <p class="rstmt">Every Technic pin must be seated in its detent.</p>
+  <p class="rnote">A Technic pin must be pushed home into its detent. Left part-way, it bears on a small area, works loose under vibration, and holds nothing reliably.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>discrete axial position</code></div><div class="kv"><span class="kk">Parts</span><span class="plinks"><a href="https://library.ldraw.org/library/official/parts/3673.dat" target="_blank" rel="noopener">3673</a> <a href="https://library.ldraw.org/library/official/parts/4274.dat" target="_blank" rel="noopener">4274</a> <a href="https://library.ldraw.org/library/official/parts/2780.dat" target="_blank" rel="noopener">2780</a></span></div><div class="kv"><span class="kk">Check kind</span><code>transform</code></div>
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/L-04.illegal.png" alt="Illegal exemplar for L-04" loading="lazy"><figcaption>Illegal<span class="vchip vna">0 conn · 2 loose pieces · no predicate yet</span></figcaption></figure><figure class="ex legal"><img src="assets/exemplars/L-04.legal.png" alt="Legal exemplar for L-04" loading="lazy"><figcaption>Legal<span class="vchip vwarn">3 conn · 1 assembly · false positive: B-01</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://ramblingbrick.com/2017/07/29/stressed-by-the-elements-saturn-v-tiles-plates-and-the-legality-of-connections/" target="_blank" rel="noopener">Berard on the deck being superseded (The Rambling Brick, 2017)</a></li><li><a href="https://swooshable.com/other-resources/stressing-the-elements" target="_blank" rel="noopener">Deck index (Swooshable)</a></li><li><a href="https://www.lego.com/en-us/service/help-topics/article/tips-for-building-with-lego-technic-elements" target="_blank" rel="noopener">LEGO: tips for building with Technic elements</a></li></ul></div>
+</article><article class="rule" id="rule-L-01">
+  <div class="rhead"><code class="rid">L-01</code><h3>SYSTEM_TECHNIC_HEIGHT_MISMATCH</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">assets/exemplars/L-01.legal.png</span></div>
+  <p class="rstmt">System side-studs and Technic holes are not co-planar.</p>
+  <p class="rnote">A System side-stud and a Technic hole do not sit at the same height. Joining them forces a small vertical misalignment that is then carried through everything built on top.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>part-class co-occurrence</code></div><div class="kv"><span class="kk">Parts</span><span class="plinks"><a href="https://library.ldraw.org/library/official/parts/3700.dat" target="_blank" rel="noopener">3700</a> <a href="https://library.ldraw.org/library/official/parts/6541.dat" target="_blank" rel="noopener">6541</a> <a href="https://library.ldraw.org/library/official/parts/87087.dat" target="_blank" rel="noopener">87087</a></span></div><div class="kv"><span class="kk">Check kind</span><code>part_identity</code></div>
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/L-01.illegal.png" alt="Illegal exemplar for L-01" loading="lazy"><figcaption>Illegal<span class="vchip vna">1 conn · 1 assembly · no predicate yet</span></figcaption></figure><figure class="ex legal"><img src="assets/exemplars/L-01.legal.png" alt="Legal exemplar for L-01" loading="lazy"><figcaption>Legal<span class="vchip vok">1 conn · 1 assembly · clean — no rule fires</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://ramblingbrick.com/2017/07/29/stressed-by-the-elements-saturn-v-tiles-plates-and-the-legality-of-connections/" target="_blank" rel="noopener">Berard on the deck being superseded (The Rambling Brick, 2017)</a></li><li><a href="https://swooshable.com/other-resources/stressing-the-elements" target="_blank" rel="noopener">Deck index (Swooshable)</a></li><li><a href="https://www.lego.com/en-us/service/help-topics/article/tips-for-building-with-lego-technic-elements" target="_blank" rel="noopener">LEGO: tips for building with Technic elements</a></li></ul></div>
+</article><article class="rule" id="rule-L-12">
+  <div class="rhead"><code class="rid">L-12</code><h3>TECHNIC_HALFBEAM_WITH_SYSTEM_PLATE</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">Technic half-beams with System plates.</p>
+  <p class="rnote">Technic half-beams and System plates do not stack cleanly together. A half-beam is 10 LDU thick against a plate&#x27;s 8, so the two only come back into alignment every 40 LDU.</p>
+  <div class="kv"><span class="kk">Parts</span><span class="plinks"><a href="https://library.ldraw.org/library/official/parts/32063.dat" target="_blank" rel="noopener">32063</a></span></div><div class="kv"><span class="kk">Check kind</span><code>none</code></div>
+  <p class="nopic">Exemplar not yet authored.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://ramblingbrick.com/2017/07/29/stressed-by-the-elements-saturn-v-tiles-plates-and-the-legality-of-connections/" target="_blank" rel="noopener">Berard on the deck being superseded (The Rambling Brick, 2017)</a></li><li><a href="https://swooshable.com/other-resources/stressing-the-elements" target="_blank" rel="noopener">Deck index (Swooshable)</a></li></ul></div>
+</article><article class="rule" id="rule-D-01">
+  <div class="rhead"><code class="rid">D-01</code><h3>STUD_IN_TECHNIC_HOLE_UNBRIDGED</h3>
+    <span class="pill disc">discouraged</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">A single unbridged stud in a Technic hole is technically legal but not recommended.</p>
+  <p class="rnote">A single unbridged stud resting in a Technic hole. Historically tolerated as workable but not recommended; current first-party rules ban it outright.</p>
+  <div class="kv"><span class="kk">Check kind</span><code>graph</code></div>
+  <p class="nopic">Exemplar not yet authored.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://ramblingbrick.com/2017/07/29/stressed-by-the-elements-saturn-v-tiles-plates-and-the-legality-of-connections/" target="_blank" rel="noopener">Berard on the deck being superseded (The Rambling Brick, 2017)</a></li><li><a href="https://swooshable.com/other-resources/stressing-the-elements" target="_blank" rel="noopener">Deck index (Swooshable)</a></li><li><a href="https://www.bricklink.com/v3/designer-program/guidelines.page?guideline=series-4" target="_blank" rel="noopener">BrickLink Designer Program guidelines</a></li></ul></div>
+</article><article class="rule" id="rule-D-02">
+  <div class="rhead"><code class="rid">D-02</code><h3>OUT_OF_SYSTEM_HEIGHT</h3>
+    <span class="pill disc">discouraged</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">Hinge-plate height mismatch puts subsequent geometry out of system.</p>
+  <p class="rnote">A hinge plate does not occupy a whole number of plate heights, so anything built above one sits off the standard vertical grid. Legitimate deliberately, but easy to do by accident.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>y mod 8 != 0</code></div><div class="kv"><span class="kk">Check kind</span><code>grid</code></div>
+  <p class="nopic">Exemplar not yet authored.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://ramblingbrick.com/2017/07/29/stressed-by-the-elements-saturn-v-tiles-plates-and-the-legality-of-connections/" target="_blank" rel="noopener">Berard on the deck being superseded (The Rambling Brick, 2017)</a></li><li><a href="https://swooshable.com/other-resources/stressing-the-elements" target="_blank" rel="noopener">Deck index (Swooshable)</a></li></ul></div>
+</article><article class="rule" id="rule-T-01">
+  <div class="rhead"><code class="rid">T-01</code><h3>MEASURED_SLOPE_ANGLES</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">assets/exemplars/T-01.illegal.png</span></div>
+  <p class="rstmt">Slope part NAMES are systematically wrong. Use measured geometry.</p>
+  <p class="rnote">A slope part&#x27;s name is not its angle. The part called \u201c33\u00b0\u201d is 26.5651\u00b0 — the arctangent of one half. Reasoning from the name rather than the measured geometry injects roughly 3 LDU of error for every stud of run.</p>
+  
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/T-01.illegal.png" alt="Illegal exemplar for T-01" loading="lazy"><figcaption>Illegal<span class="vchip vna">0 conn · 1 assembly · no predicate yet</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://bricknerd.com/home/snot-basics-geometry-techniques-and-pitfalls-3-18-2021" target="_blank" rel="noopener">SNOT basics: geometry, techniques and pitfalls (BrickNerd)</a></li></ul></div>
+</article><article class="rule" id="rule-T-03">
+  <div class="rhead"><code class="rid">T-03</code><h3>ONLY_N4_CLOSES</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">assets/exemplars/T-03.legal.png</span></div>
+  <p class="rstmt">Only theta in {0,90,180,270} maps the stud lattice onto itself. N=4 is the ONLY exactly-closing rosette.</p>
+  <p class="rnote">Only quarter turns map the stud lattice back onto itself, so a four-fold arrangement is the only one that closes exactly. Everything else leaves a gap. Closing in angle and closing on the lattice are different tests, and an arrangement can satisfy the first while failing the second.</p>
+  
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/T-03.illegal.png" alt="Illegal exemplar for T-03" loading="lazy"><figcaption>Illegal<span class="vchip vna">0 conn · 8 loose pieces · no predicate yet — caught by B-06</span></figcaption></figure><figure class="ex legal"><img src="assets/exemplars/T-03.legal.png" alt="Legal exemplar for T-03" loading="lazy"><figcaption>Legal<span class="vchip vwarn">0 conn · 4 loose pieces · false positive: B-06</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://bricknerd.com/home/snot-basics-geometry-techniques-and-pitfalls-3-18-2021" target="_blank" rel="noopener">SNOT basics: geometry, techniques and pitfalls (BrickNerd)</a></li></ul></div>
+</article><article class="rule" id="rule-T-05">
+  <div class="rhead"><code class="rid">T-05</code><h3>CURVED_SLOPES_ARE_ELLIPTICAL</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">derived</span></div>
+  <p class="rstmt">Every curved slope in the System is elliptical; none is circular.</p>
+  <p class="rnote">Every curved slope in the system is elliptical, not circular. Their transforms are sheared, so the profile is an ellipse — and equal matrix column lengths do not imply a circle, which is exactly how this is usually missed.</p>
+  <div class="kv"><span class="kk">Parts</span><span class="plinks"><a href="https://library.ldraw.org/library/official/parts/11477.dat" target="_blank" rel="noopener">11477</a> <a href="https://library.ldraw.org/library/official/parts/93273.dat" target="_blank" rel="noopener">93273</a></span></div>
+  <p class="nopic">Exemplar not yet authored.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://bricknerd.com/home/snot-basics-geometry-techniques-and-pitfalls-3-18-2021" target="_blank" rel="noopener">SNOT basics: geometry, techniques and pitfalls (BrickNerd)</a></li></ul></div>
+</article><article class="rule" id="rule-T-06">
+  <div class="rhead"><code class="rid">T-06</code><h3>NEVER_FORCE_A_BOW</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">derived</span></div>
+  <p class="rstmt">Never shorten a run to force a curve.</p>
+  <p class="rnote">A run must never be shortened to force a curve into it. The bow that results is far larger than the shortening suggests: taking a single LDU out of an eight-stud run produces almost 8 LDU of deflection, and the parts carry that stress permanently.</p>
+  
+  <p class="nopic">Exemplar not yet authored.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://bricknerd.com/home/snot-basics-geometry-techniques-and-pitfalls-3-18-2021" target="_blank" rel="noopener">SNOT basics: geometry, techniques and pitfalls (BrickNerd)</a></li><li><a href="https://bricknerd.com/home/illegal-snot-stressful-techniques-for-sideways-building-9-7-23" target="_blank" rel="noopener">Illegal SNOT: stressful techniques for sideways building (BrickNerd)</a></li></ul></div>
+</article><article class="rule" id="rule-T-08">
+  <div class="rhead"><code class="rid">T-08</code><h3>TILES_ARE_SLIP_PLANES</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">assets/exemplars/T-08.legal.png</span></div>
+  <p class="rstmt">Never place a tile in a load path.</p>
+  <p class="rnote">A tile is a slip plane. Its smooth top is exactly why it is useful as a finished surface and exactly why nothing structural may pass through it — a tile in a load path is a joint waiting to slide.</p>
+  
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/T-08.illegal.png" alt="Illegal exemplar for T-08" loading="lazy"><figcaption>Illegal<span class="vchip vna">16 conn · 1 assembly · no predicate yet</span></figcaption></figure><figure class="ex legal"><img src="assets/exemplars/T-08.legal.png" alt="Legal exemplar for T-08" loading="lazy"><figcaption>Legal<span class="vchip vok">8 conn · 1 assembly · clean — no rule fires</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://bricknerd.com/home/snot-basics-geometry-techniques-and-pitfalls-3-18-2021" target="_blank" rel="noopener">SNOT basics: geometry, techniques and pitfalls (BrickNerd)</a></li></ul></div>
+</article><article class="rule" id="rule-T-09">
+  <div class="rhead"><code class="rid">T-09</code><h3>SNOT_COMMENSURABILITY</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">derived</span></div>
+  <p class="rstmt">A SNOT sandwich must return to the grid.</p>
+  <p class="rnote">A sideways sandwich must come back to the grid. Because five plates are exactly two studs and three plates are exactly one brick, only certain combinations of plate and brick thickness land back on the lattice when turned through ninety degrees.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>(n_plate * 8 + n_brick * 24) mod 20 == 0</code></div><div class="kv"><span class="kk">Check kind</span><code>grid</code></div>
+  <p class="nopic">Exemplar not yet authored.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://bricknerd.com/home/snot-basics-geometry-techniques-and-pitfalls-3-18-2021" target="_blank" rel="noopener">SNOT basics: geometry, techniques and pitfalls (BrickNerd)</a></li></ul></div>
+</article><article class="rule" id="rule-T-10">
+  <div class="rhead"><code class="rid">T-10</code><h3>BRACKET_NOT_COMMENSURATE</h3>
+    <span class="pill disc">discouraged</span>
+    <span class="srcs">derived</span></div>
+  <p class="rstmt">1x2 bracket child face offset from the parent edge is 12 LDU — NOT grid-commensurate.</p>
+  <p class="rnote">A bracket&#x27;s offset face does not land on the stud lattice. The child face sits 12 LDU from the parent edge, which is not a whole number of studs, so anything built from it is off-grid until deliberately brought back.</p>
+  <div class="kv"><span class="kk">Parts</span><span class="plinks"><a href="https://library.ldraw.org/library/official/parts/99207.dat" target="_blank" rel="noopener">99207</a> <a href="https://library.ldraw.org/library/official/parts/99206.dat" target="_blank" rel="noopener">99206</a> <a href="https://library.ldraw.org/library/official/parts/44728.dat" target="_blank" rel="noopener">44728</a> <a href="https://library.ldraw.org/library/official/parts/99781.dat" target="_blank" rel="noopener">99781</a></span></div>
+  <p class="nopic">Exemplar not yet authored.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://bricknerd.com/home/snot-basics-geometry-techniques-and-pitfalls-3-18-2021" target="_blank" rel="noopener">SNOT basics: geometry, techniques and pitfalls (BrickNerd)</a></li></ul></div>
+</article>
+
+  <p class="sub">Blocked, or not geometric <span class="range">12</span></p>
+  <p class="cap">Each of these is missing something the LDraw format or library cannot supply. The line under each says what.</p>
+  <article class="rule" id="rule-B-04">
+  <div class="rhead"><code class="rid">B-04</code><h3>MUST_BE_SEPARABLE</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">No construction that cannot be taken apart again.</p>
+  <p class="rnote">A model must come apart again. Large flat plate-on-plate contact areas can grip hard enough that separating them damages one or both parts.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>flag large plate-on-plate contact area</code></div><div class="kv"><span class="kk">Check kind</span><code>graph</code></div>
+  <p class="nopic">No exemplar image: not directly visible — separability is a property of the whole assembly.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.bricklink.com/v3/designer-program/guidelines.page?guideline=series-4" target="_blank" rel="noopener">BrickLink Designer Program guidelines</a></li><li><a href="https://www.bricklink.com/v3/designer-program/terms_of_service.page" target="_blank" rel="noopener">BrickLink Designer Program terms</a></li></ul></div>
+</article><article class="rule" id="rule-B-02">
+  <div class="rhead"><code class="rid">B-02</code><h3>NO_BENDING</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">Only parts designed to flex may be bent.</p>
+  <p class="rnote">Only elements designed to flex may be bent. Bending a rigid part deforms it permanently, and no amount of care makes it recover.</p>
+  <div class="kv"><span class="kk">Check kind</span><code>none</code></div>
+  <p class="nopic">No exemplar image: unrepresentable — a bent part has no distinct encoding in plain LDraw.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.bricklink.com/v3/designer-program/guidelines.page?guideline=series-4" target="_blank" rel="noopener">BrickLink Designer Program guidelines</a></li><li><a href="https://www.bricklink.com/v3/designer-program/terms_of_service.page" target="_blank" rel="noopener">BrickLink Designer Program terms</a></li></ul></div>
+</article><article class="rule" id="rule-B-08">
+  <div class="rhead"><code class="rid">B-08</code><h3>TECHNIC_SMOOTHNESS</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">Working mechanisms must not stress elements.</p>
+  <p class="rnote">A working mechanism must turn without stressing its elements. Long gear trains accumulate friction and backlash until something binds or a tooth skips.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>drivetrain graph depth</code></div><div class="kv"><span class="kk">Check kind</span><code>graph</code></div>
+  <p class="nopic">No exemplar image: not directly visible — a property of a drivetrain in motion.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.bricklink.com/v3/designer-program/guidelines.page?guideline=series-4" target="_blank" rel="noopener">BrickLink Designer Program guidelines</a></li><li><a href="https://www.bricklink.com/v3/designer-program/terms_of_service.page" target="_blank" rel="noopener">BrickLink Designer Program terms</a></li><li><a href="https://www.lego.com/en-us/service/help-topics/article/tips-for-building-with-lego-technic-elements" target="_blank" rel="noopener">LEGO: tips for building with Technic elements</a></li></ul></div>
+</article><article class="rule" id="rule-B-09">
+  <div class="rhead"><code class="rid">B-09</code><h3>SUBMISSION_LIMITS</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">Part count, palette and part-economy limits apply to submissions.</p>
+  <p class="rnote">Part count, palette size and part-economy limits apply to a submitted model. These are constraints on what may be submitted, not on how it is built.</p>
+  <div class="kv"><span class="kk">Check kind</span><code>inventory</code></div>
+  <p class="nopic">No exemplar image: not geometric — inventory arithmetic.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.bricklink.com/v3/designer-program/terms_of_service.page" target="_blank" rel="noopener">BrickLink Designer Program terms</a></li></ul></div>
+</article><article class="rule" id="rule-L-06">
+  <div class="rhead"><code class="rid">L-06</code><h3>CONE_ON_PIN_NO_STOP</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">No press-fitting an element that has no travel stop.</p>
+  <p class="rnote">An element with no travel stop must not be press-fitted onto a pin or shaft. With nothing to arrest it, insertion depth is unbounded and the part can be driven until it splits.</p>
+  <div class="kv"><span class="kk">Parts</span><span class="plinks"><a href="https://library.ldraw.org/library/official/parts/3004.dat" target="_blank" rel="noopener">3004</a> <a href="https://library.ldraw.org/library/official/parts/4589.dat" target="_blank" rel="noopener">4589</a></span></div><div class="kv"><span class="kk">Check kind</span><code>part_identity</code></div>
+  <p class="nopic">No exemplar image: needs a part-property table: travel stops.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://ramblingbrick.com/2017/07/29/stressed-by-the-elements-saturn-v-tiles-plates-and-the-legality-of-connections/" target="_blank" rel="noopener">Berard on the deck being superseded (The Rambling Brick, 2017)</a></li><li><a href="https://swooshable.com/other-resources/stressing-the-elements" target="_blank" rel="noopener">Deck index (Swooshable)</a></li></ul></div>
+</article><article class="rule" id="rule-L-05">
+  <div class="rhead"><code class="rid">L-05</code><h3>PIN_INTO_UNDERSIZED_BORE</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">Pins must not be forced into non-Technic bores.</p>
+  <p class="rnote">A pin must not be forced into a bore that is not a Technic hole. Other bores are narrower, and driving a pin in splits them or widens them permanently.</p>
+  <div class="kv"><span class="kk">Parts</span><span class="plinks"><a href="https://library.ldraw.org/library/official/parts/3062b.dat" target="_blank" rel="noopener">3062b</a></span></div><div class="kv"><span class="kk">Check kind</span><code>part_identity</code></div>
+  <p class="nopic">No exemplar image: needs a part-property table: bore classes.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://ramblingbrick.com/2017/07/29/stressed-by-the-elements-saturn-v-tiles-plates-and-the-legality-of-connections/" target="_blank" rel="noopener">Berard on the deck being superseded (The Rambling Brick, 2017)</a></li><li><a href="https://swooshable.com/other-resources/stressing-the-elements" target="_blank" rel="noopener">Deck index (Swooshable)</a></li></ul></div>
+</article><article class="rule" id="rule-L-08">
+  <div class="rhead"><code class="rid">L-08</code><h3>PC_ON_PC_SLIDING</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">Polycarbonate must not slide against polycarbonate.</p>
+  <p class="rnote">Polycarbonate must not be made to slide against polycarbonate. The two surfaces gall and cloud one another, and a transparent element loses its clarity permanently.</p>
+  <div class="kv"><span class="kk">Predicate</span><code>material table (part x colour)</code></div><div class="kv"><span class="kk">Check kind</span><code>part_identity</code></div>
+  <p class="nopic">No exemplar image: needs a part-property table: PC vs ABS materials.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://ramblingbrick.com/2017/07/29/stressed-by-the-elements-saturn-v-tiles-plates-and-the-legality-of-connections/" target="_blank" rel="noopener">Berard on the deck being superseded (The Rambling Brick, 2017)</a></li><li><a href="https://swooshable.com/other-resources/stressing-the-elements" target="_blank" rel="noopener">Deck index (Swooshable)</a></li></ul></div>
+</article><article class="rule" id="rule-D-04">
+  <div class="rhead"><code class="rid">D-04</code><h3>BUILD_COMPLEXITY</h3>
+    <span class="pill disc">discouraged</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">Excessive build complexity.</p>
+  <p class="rnote">A build that is unreasonably fiddly to assemble, regardless of whether it is geometrically sound.</p>
+  <div class="kv"><span class="kk">Check kind</span><code>none</code></div>
+  <p class="nopic">No exemplar image: not geometric — a judgement about build complexity.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://ramblingbrick.com/2017/07/29/stressed-by-the-elements-saturn-v-tiles-plates-and-the-legality-of-connections/" target="_blank" rel="noopener">Berard on the deck being superseded (The Rambling Brick, 2017)</a></li><li><a href="https://swooshable.com/other-resources/stressing-the-elements" target="_blank" rel="noopener">Deck index (Swooshable)</a></li></ul></div>
+</article><article class="rule" id="rule-E-06">
+  <div class="rhead"><code class="rid">E-06</code><h3>NO_BFC_IN_MODELS</h3>
+    <span class="pill disc">discouraged</span>
+    <span class="srcs">first-party</span></div>
+  <p class="rstmt">Emit no BFC statements in a model file. They are for part files.</p>
+  <p class="rnote">Back-face culling statements belong in part files, which contain polygons. A model file contains part references, so the statements have nothing to act on.</p>
+  <div class="kv"><span class="kk">Check kind</span><code>transform</code></div>
+  <p class="nopic">No exemplar image: not geometric — a meta-command in a file.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.ldraw.org/article/415.html" target="_blank" rel="noopener">LDraw Back Face Culling extension</a></li></ul></div>
+</article><article class="rule" id="rule-E-09">
+  <div class="rhead"><code class="rid">E-09</code><h3>ORIGIN_NOT_COMPUTED</h3>
+    <span class="pill hard">hard</span>
+    <span class="srcs">derived</span></div>
+  <p class="rstmt">Do not compute part origin as the centroid of its footprint. Use a per-part table.</p>
+  <p class="rnote">A part&#x27;s origin cannot be computed from its shape. Barely a quarter of parts sit where the obvious rule would predict, and a plain 2×1 slope breaks it outright, so origins must be looked up rather than derived.</p>
+  <div class="kv"><span class="kk">Check kind</span><code>none</code></div>
+  <p class="nopic">No exemplar image: not geometric — a generator convention about where a part&#x27;s origin sits.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://library.ldraw.org/documentation/ldraworg-official-parts-library-standards/general" target="_blank" rel="noopener">LDraw official parts library standards</a></li></ul></div>
+</article><article class="rule" id="rule-T-02">
+  <div class="rhead"><code class="rid">T-02</code><h3>EXACT_ROTATIONS_ARE_RATIONAL</h3>
+    <span class="pill disc">discouraged</span>
+    <span class="srcs">derived</span></div>
+  <p class="rstmt">For Pythagorean-triple rotations, emit the exact rational cos/sin, never cos(36.87 deg).</p>
+  <p class="rnote">Rotations that come from whole-number triangles should be written as their exact ratios rather than as a rounded decimal angle. A 3-4-5 turn is exactly 0.8 and 0.6; writing the angle instead introduces error that compounds through nested assemblies.</p>
+  
+  <p class="nopic">No exemplar image: not directly visible — the precision of a rotation&#x27;s coefficients.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://bricknerd.com/home/snot-basics-geometry-techniques-and-pitfalls-3-18-2021" target="_blank" rel="noopener">SNOT basics: geometry, techniques and pitfalls (BrickNerd)</a></li></ul></div>
+</article><article class="rule" id="rule-T-07">
+  <div class="rhead"><code class="rid">T-07</code><h3>LOAD_BUDGET</h3>
+    <span class="pill disc">discouraged</span>
+    <span class="srcs">derived</span></div>
+  <p class="rstmt">Stud engagement must be budgeted against hanging mass.</p>
+  <p class="rnote">Stud engagement has to be budgeted against the weight it carries. A clutch is strong in shear and weak in tension, so a hanging load needs far more studs than one resting on top of its support.</p>
+  
+  <p class="nopic">No exemplar image: not directly visible — a load budget in newtons.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.lego.com/en-us/history/articles/d-quality-in-every-detail" target="_blank" rel="noopener">LEGO: quality in every detail (moulding tolerance)</a></li><li><a href="https://www.lego.com/en-us/service/help-topics/article/how-do-lego-bricks-work" target="_blank" rel="noopener">LEGO: how LEGO bricks work</a></li></ul></div>
+</article>
+
+  <p class="sub">Legal and informational <span class="range">5</span></p>
+  <p class="cap">Rules recorded so the tool knows what is <em>permitted</em> — the near-twins that stop a checker from pattern-matching on shape.</p>
+  <article class="rule" id="rule-G-01">
+  <div class="rhead"><code class="rid">G-01</code><h3>TILE_BETWEEN_STUDS</h3>
+    <span class="pill legal">legal</span>
+    <span class="srcs">assets/exemplars/G-01.legal.png</span></div>
+  <p class="rstmt">A tile wedged between two studs is LEGAL. Contrast L-10, which is the same geometry with a plate.</p>
+  <p class="rnote">A tile wedged edge-on between two studs is permitted. This is the legal half of the sharpest pair in the corpus: the illegal case is the same geometry built with a plate, and nothing but the part class distinguishes them.</p>
+  <div class="kv"><span class="kk">Parts</span><span class="plinks"><a href="https://library.ldraw.org/library/official/parts/3070b.dat" target="_blank" rel="noopener">3070b</a></span></div>
+  <div class="exrow"><figure class="ex illegal"><img src="assets/exemplars/G-01.illegal.png" alt="Illegal exemplar for G-01" loading="lazy"><figcaption>Illegal</figcaption></figure><figure class="ex legal"><img src="assets/exemplars/G-01.legal.png" alt="Legal exemplar for G-01" loading="lazy"><figcaption>Legal<span class="vchip vwarn">4 conn · 2 loose pieces · false positive: B-06</span></figcaption></figure></div><p class="nopic">Shown beside L-10, the illegal plate in identical geometry — note the stud on the plate&#x27;s exposed edge.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://ramblingbrick.com/2017/07/29/stressed-by-the-elements-saturn-v-tiles-plates-and-the-legality-of-connections/" target="_blank" rel="noopener">Berard on the deck being superseded (The Rambling Brick, 2017)</a></li><li><a href="https://swooshable.com/other-resources/stressing-the-elements" target="_blank" rel="noopener">Deck index (Swooshable)</a></li><li><a href="https://bricknerd.com/home/illegal-snot-stressful-techniques-for-sideways-building-9-7-23" target="_blank" rel="noopener">Illegal SNOT: stressful techniques for sideways building (BrickNerd)</a></li></ul></div>
+</article><article class="rule" id="rule-G-02">
+  <div class="rhead"><code class="rid">G-02</code><h3>CLIP_ON_TILE</h3>
+    <span class="pill legal">legal</span>
+    <span class="srcs">assets/exemplars/G-02.legal.png</span></div>
+  <p class="rstmt">Clipping onto a tile is legal on modern clip mouldings.</p>
+  <p class="rnote">Clipping onto a tile is permitted on current clip mouldings. Older mouldings did not hold reliably, which is why this is often mistakenly listed as forbidden.</p>
+  <div class="kv"><span class="kk">Parts</span><span class="plinks"><a href="https://library.ldraw.org/library/official/parts/4085b.dat" target="_blank" rel="noopener">4085b</a> <a href="https://library.ldraw.org/library/official/parts/15712.dat" target="_blank" rel="noopener">15712</a></span></div>
+  <div class="exrow"><figure class="ex legal"><img src="assets/exemplars/G-02.legal.png" alt="Legal exemplar for G-02" loading="lazy"><figcaption>Legal<span class="vchip vok">4 conn · 1 assembly · clean — no rule fires</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.hellobricks.com/pdf/jamieberard-brickstress-bf06.pdf" target="_blank" rel="noopener">Stressing the Elements (Jamie Berard, LEGO Group, 2006)</a></li><li><a href="https://ramblingbrick.com/2017/07/29/stressed-by-the-elements-saturn-v-tiles-plates-and-the-legality-of-connections/" target="_blank" rel="noopener">Berard on the deck being superseded (The Rambling Brick, 2017)</a></li><li><a href="https://swooshable.com/other-resources/stressing-the-elements" target="_blank" rel="noopener">Deck index (Swooshable)</a></li></ul></div>
+</article><article class="rule" id="rule-G-03">
+  <div class="rhead"><code class="rid">G-03</code><h3>FIVE_PLATES_EQUALS_TWO_STUDS</h3>
+    <span class="pill legal">legal</span>
+    <span class="srcs">assets/exemplars/G-03.legal.png</span></div>
+  <p class="rstmt">The 5-plate / 2-stud SNOT identity is legal and exact (40 LDU).</p>
+  <p class="rnote">Five stacked plates are exactly two studs wide — 40 LDU either way. This identity is what makes sideways building work at all: it is the point at which a vertical stack and a horizontal run agree.</p>
+  
+  <div class="exrow"><figure class="ex legal"><img src="assets/exemplars/G-03.legal.png" alt="Legal exemplar for G-03" loading="lazy"><figcaption>Legal<span class="vchip vwarn">10 conn · 2 loose pieces · false positive: B-06, E-07</span></figcaption></figure></div>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://bricknerd.com/home/snot-basics-geometry-techniques-and-pitfalls-3-18-2021" target="_blank" rel="noopener">SNOT basics: geometry, techniques and pitfalls (BrickNerd)</a></li><li><a href="https://www.lego.com/en-us/service/help-topics/article/how-do-lego-bricks-work" target="_blank" rel="noopener">LEGO: how LEGO bricks work</a></li></ul></div>
+</article><article class="rule" id="rule-T-04">
+  <div class="rhead"><code class="rid">T-04</code><h3>MACARONI_LAW</h3>
+    <span class="pill legal">legal</span>
+    <span class="srcs">derived</span></div>
+  <p class="rstmt">Corner-round NxN parts are quarter annuli: R_outer = 20N, R_inner = 20(N-1), wall always exactly 20 LDU.</p>
+  <p class="rnote">A quarter-round corner part is an exact quarter annulus: its outer radius is a whole number of studs, its inner radius one stud less, and its wall is always exactly one stud thick. Four of them are the only exact closed ring the system offers.</p>
+  
+  <p class="nopic">Exemplar not yet authored.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://bricknerd.com/home/snot-basics-geometry-techniques-and-pitfalls-3-18-2021" target="_blank" rel="noopener">SNOT basics: geometry, techniques and pitfalls (BrickNerd)</a></li></ul></div>
+</article><article class="rule" id="rule-T-11">
+  <div class="rhead"><code class="rid">T-11</code><h3>SCALE_THRESHOLD</h3>
+    <span class="pill legal">style</span>
+    <span class="srcs">derived</span></div>
+  <p class="rstmt">Any dimension over 1 m requires a steel armature; brick becomes cladding.</p>
+  <p class="rnote">Beyond about a metre in any dimension, brick alone will not hold its own shape. At that scale the model needs an internal armature and the brick becomes cladding on it.</p>
+  
+  <p class="nopic">Exemplar not yet authored.</p>
+  <div class="srcbox"><span class="kk">Sources</span><ul><li><a href="https://www.lego.com/en-us/service/help-topics/article/building-tips-for-master-builders" target="_blank" rel="noopener">LEGO: building tips for master builders</a></li></ul></div>
+</article>
+</section>
+
+<section class="band">
+  <header class="bandhead"><h2>Gold — pool, and how thin it gets</h2><span class="range">60 of 1,264</span></header>
+  <p class="why">The flex-path exclusion is not evenly spread. It removes over half the large models and nearly all the huge ones, which is the real constraint on this corpus — not how many we want, but how many exist.</p>
+  <div class="tw"><table><thead><tr><th>Band</th><th>In corpus</th><th>Flex-excluded</th><th>Eligible</th><th>Target</th></tr></thead><tbody><tr><td>tiny</td><td>271</td><td class="neg">2</td><td>269</td><td class="tgt">8</td></tr><tr><td>small</td><td>706</td><td class="neg">38</td><td>668</td><td class="tgt">24</td></tr><tr><td>medium</td><td>382</td><td class="neg">98</td><td>284</td><td class="tgt">16</td></tr><tr><td>large</td><td>96</td><td class="neg">55</td><td>41</td><td class="tgt">10</td></tr><tr><td>huge</td><td>9</td><td class="neg">7</td><td>2</td><td class="tgt">2</td></tr></tbody></table></div>
+  <p class="cap">At the large band we can choose 10 from 41. At huge, both eligible models are taken because only two exist.</p>
+
+  <p class="sub">Every eligible large model <span class="range">41</span></p>
+  <p class="cap">Listed in full because this is the band where choice is genuinely constrained.</p>
+  <div class="tw scroller"><table><thead><tr><th>Set</th><th>Parts</th><th>Model</th></tr></thead><tbody><tr><td><code>8258-1</code></td><td>4,242</td><td>main</td></tr><tr><td><code>8273-1</code></td><td>4,089</td><td>main</td></tr><tr><td><code>10272-1</code></td><td>3,522</td><td>main</td></tr><tr><td><code>76139-1</code></td><td>3,491</td><td>1989 Batmobile - main</td></tr><tr><td><code>10253-1</code></td><td>3,134</td><td>main</td></tr><tr><td><code>10270-1</code></td><td>3,125</td><td>Complete</td></tr><tr><td><code>76042-1</code></td><td>3,033</td><td>Main</td></tr><tr><td><code>8275-1</code></td><td>3,021</td><td>main</td></tr><tr><td><code>10251-1</code></td><td>2,745</td><td>Brick Bank</td></tr><tr><td><code>31197-1_Version-A</code></td><td>2,645</td><td>Main</td></tr><tr><td><code>31199-1_Hulkbuster-Mark-I</code></td><td>2,643</td><td>Marvel Studios Iron Man - Hulkbuster Mark I</td></tr><tr><td><code>71006-1</code></td><td>2,636</td><td>main</td></tr><tr><td><code>10224-1</code></td><td>2,634</td><td>Main</td></tr><tr><td><code>364-1</code></td><td>2,626</td><td>Harbour Scene - Main File</td></tr><tr><td><code>21311-1</code></td><td>2,469</td><td>main</td></tr><tr><td><code>10030-1</code></td><td>2,450</td><td>main</td></tr><tr><td><code>10246-1</code></td><td>2,450</td><td>Main model</td></tr><tr><td><code>10185-1</code></td><td>2,397</td><td>Main Model</td></tr><tr><td><code>10256-1</code></td><td>2,360</td><td>main</td></tr><tr><td><code>10197-1</code></td><td>2,358</td><td>main</td></tr><tr><td><code>6989-1</code></td><td>2,352</td><td>Mega Core Magnetizer</td></tr><tr><td><code>21010-1</code></td><td>2,277</td><td>Robie House</td></tr><tr><td><code>10298-1</code></td><td>2,205</td><td>main</td></tr><tr><td><code>10182-1</code></td><td>2,183</td><td>Main Model</td></tr><tr><td><code>10212-1</code></td><td>2,134</td><td>main</td></tr><tr><td><code>21325-1</code></td><td>2,131</td><td>Medieval Blacksmith</td></tr><tr><td><code>10184-1</code></td><td>2,084</td><td>Main</td></tr><tr><td><code>75060-1</code></td><td>2,057</td><td>complete</td></tr><tr><td><code>75181-1</code></td><td>1,977</td><td>Y-Wing Starfighter - main</td></tr><tr><td><code>10265-1</code></td><td>1,912</td><td>Ford Mustang 1967 Complete</td></tr><tr><td><code>10143-1</code></td><td>1,909</td><td>main</td></tr><tr><td><code>10018-1</code></td><td>1,869</td><td>main</td></tr><tr><td><code>6339-1</code></td><td>1,793</td><td>main</td></tr><tr><td><code>10295-1</code></td><td>1,792</td><td>Porsche 911 Targa Complete</td></tr><tr><td><code>5571-1</code></td><td>1,752</td><td>Giant Truck - Truck</td></tr><tr><td><code>41999-1</code></td><td>1,571</td><td>main</td></tr><tr><td><code>3185-1</code></td><td>1,564</td><td>main</td></tr><tr><td><code>10227-1</code></td><td>1,534</td><td>subModel-89</td></tr><tr><td><code>9396-1</code></td><td>1,515</td><td>Main</td></tr><tr><td><code>9395-1</code></td><td>1,513</td><td>Main</td></tr><tr><td><code>10267-1</code></td><td>1,502</td><td>main</td></tr></tbody></table></div>
+
+  <p class="sub">Every eligible huge model <span class="range">2</span></p>
+  <div class="tw"><table><thead><tr><th>Set</th><th>Parts</th><th>Model</th></tr></thead><tbody><tr><td><code>31203-1</code></td><td>10,953</td><td>Main</td></tr><tr><td><code>10276-1</code></td><td>5,433</td><td>main</td></tr></tbody></table></div>
+</section>
+
+<section class="band">
+  <header class="bandhead"><h2>Injected — one operator per rule</h2><span class="range">300 total</span></header>
+  <p class="why">A Gold host plus exactly one recorded mutation. The label is certain because we made it; the context is real because the host is. Only rules with a working predicate can be injected against — an undetected injection is a recall gap, reported rather than removed.</p>
+  <div class="tw"><table><thead><tr><th>Rule</th><th>Mutation operator</th><th>Count</th></tr></thead><tbody><tr><td><code>B-01</code></td><td>retarget a stud connection onto a Technic pinhole</td><td class="tgt">34</td></tr><tr><td><code>B-05</code></td><td>apply a sub-detent yaw to a single-stud asymmetric part</td><td class="tgt">34</td></tr><tr><td><code>B-06</code></td><td>translate one sub-assembly out of contact</td><td class="tgt">34</td></tr><tr><td><code>E-01</code></td><td>transpose or shear a placement matrix</td><td class="tgt">34</td></tr><tr><td><code>E-02</code></td><td>move a placement off the 2 LDU vertical lattice</td><td class="tgt">33</td></tr><tr><td><code>E-03</code></td><td>rewrite a top-level colour to 16</td><td class="tgt">33</td></tr><tr><td><code>E-05</code></td><td>move content before the first 0 FILE</td><td class="tgt">33</td></tr><tr><td><code>E-07</code></td><td>substitute a current part with its deprecated alias</td><td class="tgt">33</td></tr><tr><td><code>E-08</code></td><td>replace a part number with one that does not resolve</td><td class="tgt">32</td></tr></tbody></table></div>
+  <p class="cap">Never injected into Wild models: a &ldquo;missed&rdquo; injection there may be a model that was already violating.</p>
+</section>
+
+<section class="band">
+  <header class="bandhead"><h2>Specimens</h2><span class="range">15 illustrative</span></header>
+  <p class="why">Rendered from their own geometry through the verifier's resolver, to show what each band and technique class actually looks like. Seven are rotatable.</p>
+</section>
+
+<section class="band">
+  <header class="bandhead">
+    <h2>Tiny</h2><span class="range">under 50 parts</span>
+  </header>
+  <p class="why">Single-block files with no <code>0 FILE</code> meta — the fallback path nothing else exercises.</p>
+  <div class="plates"><article class="plate">
+  <button class="shot live" data-set="7276-1" aria-label="Open rotatable 3D view of Mango"><img src="assets/renders/7276-1.png" alt="Rendered view of Mango" loading="lazy"><span class="spin">rotate ↻</span></button>
+  <div class="meta">
+    <div class="idline"><code class="set">7276-1</code><h3>Mango</h3></div>
+    <p class="repro">Reproduced by Merlijn Wissink</p>
+    <dl class="facts">
+      <div><dt>Parts</dt><dd>6</dd></div>
+      <div><dt>Triangles</dt><dd>1,906</dd></div>
+    </dl>
+    <div class="tags"><span class="tag">Pure System</span></div>
+    <p class="note">No <code>0 FILE</code> block at all — exercises the single-block fallback path.</p>
+  </div>
+</article><article class="plate">
+  <button class="shot live" data-set="7274-1" aria-label="Open rotatable 3D view of Orange"><img src="assets/renders/7274-1.png" alt="Rendered view of Orange" loading="lazy"><span class="spin">rotate ↻</span></button>
+  <div class="meta">
+    <div class="idline"><code class="set">7274-1</code><h3>Orange</h3></div>
+    <p class="repro">Reproduced by Merlijn Wissink</p>
+    <dl class="facts">
+      <div><dt>Parts</dt><dd>7</dd></div>
+      <div><dt>Triangles</dt><dd>1,600</dd></div>
+    </dl>
+    <div class="tags"><span class="tag">Pure System</span></div>
+    <p class="note">Same fallback path; a second sample to prove the first wasn't a fluke.</p>
+  </div>
+</article><article class="plate">
+  <div class="shot"><img src="assets/renders/7278-1.png" alt="Rendered view of Melon" loading="lazy"></div>
+  <div class="meta">
+    <div class="idline"><code class="set">7278-1</code><h3>Melon</h3></div>
+    <p class="repro">Reproduced by Merlijn Wissink</p>
+    <dl class="facts">
+      <div><dt>Parts</dt><dd>8</dd></div>
+      <div><dt>Triangles</dt><dd>—</dd></div>
+    </dl>
+    <div class="tags"><span class="tag">Pure System</span></div>
+    <p class="note">Smallest useful three-way check on the no-<code>FILE</code> branch.</p>
+  </div>
+</article></div>
+</section><section class="band">
+  <header class="bandhead">
+    <h2>Small</h2><span class="range">50–300 parts</span>
+  </header>
+  <p class="why">Hand-verifiable end to end. The workhorse of the verified core.</p>
+  <div class="plates"><article class="plate">
+  <button class="shot live" data-set="1210-2" aria-label="Open rotatable 3D view of Small house"><img src="assets/renders/1210-2.png" alt="Rendered view of Small house" loading="lazy"><span class="spin">rotate ↻</span></button>
+  <div class="meta">
+    <div class="idline"><code class="set">1210-2</code><h3>Small house</h3></div>
+    <p class="repro">Reproduced by N. W. Perry</p>
+    <dl class="facts">
+      <div><dt>Parts</dt><dd>135</dd></div>
+      <div><dt>Triangles</dt><dd>7,146</dd></div>
+    </dl>
+    <div class="tags"><span class="tag">Pure System</span></div>
+    <p class="note">Baseline for the grid rules with no Technic or SNOT confounders.</p>
+  </div>
+</article><article class="plate">
+  <button class="shot live" data-set="850-1" aria-label="Open rotatable 3D view of Fork-Lift Truck"><img src="assets/renders/850-1.png" alt="Rendered view of Fork-Lift Truck" loading="lazy"><span class="spin">rotate ↻</span></button>
+  <div class="meta">
+    <div class="idline"><code class="set">850-1</code><h3>Fork-Lift Truck</h3></div>
+    <p class="repro">Reproduced by Merlijn Wissink</p>
+    <dl class="facts">
+      <div><dt>Parts</dt><dd>216</dd></div>
+      <div><dt>Triangles</dt><dd>111,898</dd></div>
+    </dl>
+    <div class="tags"><span class="tag">Technic</span><span class="tag">Vintage</span></div>
+    <p class="note">Expert Builder era. Predates most rules the tool enforces — the anchor for the period-mixing problem.</p>
+  </div>
+</article><article class="plate">
+  <button class="shot live" data-set="41588-1" aria-label="Open rotatable 3D view of The Joker"><img src="assets/renders/41588-1.png" alt="Rendered view of The Joker" loading="lazy"><span class="spin">rotate ↻</span></button>
+  <div class="meta">
+    <div class="idline"><code class="set">41588-1</code><h3>The Joker</h3></div>
+    <p class="repro">Reproduced by Damien Roux</p>
+    <dl class="facts">
+      <div><dt>Parts</dt><dd>241</dd></div>
+      <div><dt>Triangles</dt><dd>28,621</dd></div>
+    </dl>
+    <div class="tags"><span class="tag">Minifigure</span><span class="tag">Clip &amp;amp; bar</span></div>
+    <p class="note">Clip and bar connections — the known <code>SNAP_CLP</code> gap, where clips carry no gender data.</p>
+  </div>
+</article><article class="plate">
+  <button class="shot live" data-set="7903-1" aria-label="Open rotatable 3D view of Rescue Helicopter"><img src="assets/renders/7903-1.png" alt="Rendered view of Rescue Helicopter" loading="lazy"><span class="spin">rotate ↻</span></button>
+  <div class="meta">
+    <div class="idline"><code class="set">7903-1</code><h3>Rescue Helicopter</h3></div>
+    <p class="repro">Reproduced by Marc Giraudet</p>
+    <dl class="facts">
+      <div><dt>Parts</dt><dd>270</dd></div>
+      <div><dt>Triangles</dt><dd>107,379</dd></div>
+    </dl>
+    <div class="tags"><span class="tag">Hinged</span><span class="tag">Mixed</span></div>
+    <p class="note">Carries the four genuine <code>B-05</code> violations: <code>3040b</code>×2 and <code>6091</code>×2.</p>
+  </div>
+</article></div>
+</section><section class="band">
+  <header class="bandhead">
+    <h2>Medium</h2><span class="range">300–1,500 parts</span>
+  </header>
+  <p class="why">Submodel nesting becomes real, and so does transform-composition depth.</p>
+  <div class="plates"><article class="plate">
+  <button class="shot live" data-set="10001-1" aria-label="Open rotatable 3D view of Metroliner"><img src="assets/renders/10001-1.png" alt="Rendered view of Metroliner" loading="lazy"><span class="spin">rotate ↻</span></button>
+  <div class="meta">
+    <div class="idline"><code class="set">10001-1</code><h3>Metroliner</h3></div>
+    <p class="repro">Reproduced by Zoltán Kéri</p>
+    <dl class="facts">
+      <div><dt>Parts</dt><dd>872</dd></div>
+      <div><dt>Triangles</dt><dd>119,993</dd></div>
+    </dl>
+    <div class="tags"><span class="tag">SNOT</span><span class="tag">Nested</span></div>
+    <p class="note">Contains the non-orthonormal subpart transform that forced <code>E-01</code>'s tolerance work.</p>
+  </div>
+</article><article class="plate">
+  <div class="shot"><img src="assets/renders/8880-1.png" alt="Rendered view of Super Car" loading="lazy"></div>
+  <div class="meta">
+    <div class="idline"><code class="set">8880-1</code><h3>Super Car</h3></div>
+    <p class="repro">Reproduced by Orion Pobursky</p>
+    <dl class="facts">
+      <div><dt>Parts</dt><dd>1,366</dd></div>
+      <div><dt>Triangles</dt><dd>—</dd></div>
+    </dl>
+    <div class="tags"><span class="tag">Technic</span></div>
+    <p class="note">Technic maturity — pins, axles and pinholes at density.</p>
+  </div>
+</article><article class="plate">
+  <div class="shot"><img src="assets/renders/8448-1.png" alt="Rendered view of Super Street Sensation" loading="lazy"></div>
+  <div class="meta">
+    <div class="idline"><code class="set">8448-1</code><h3>Super Street Sensation</h3></div>
+    <p class="repro">Reproduced by Orion Pobursky</p>
+    <dl class="facts">
+      <div><dt>Parts</dt><dd>1,331</dd></div>
+      <div><dt>Triangles</dt><dd>—</dd></div>
+    </dl>
+    <div class="tags"><span class="tag">Hinged</span><span class="tag">Flex-path</span></div>
+    <p class="note">1,331 parts across 183,705 lines. Generated flex geometry dominates the file.</p>
+  </div>
+</article><article class="plate">
+  <div class="shot"><img src="assets/renders/8466-1.png" alt="Rendered view of 4×4 Off-Roader" loading="lazy"></div>
+  <div class="meta">
+    <div class="idline"><code class="set">8466-1</code><h3>4×4 Off-Roader</h3></div>
+    <p class="repro">Reproduced by —</p>
+    <dl class="facts">
+      <div><dt>Parts</dt><dd>1,327</dd></div>
+      <div><dt>Triangles</dt><dd>—</dd></div>
+    </dl>
+    <div class="tags"><span class="tag">Flex-path</span></div>
+    <p class="note">The extreme case: 1,327 parts, 311,435 lines — 235 lines per part against a corpus median of 3.3.</p>
+  </div>
+</article></div>
+</section><section class="band">
+  <header class="bandhead">
+    <h2>Large</h2><span class="range">1,500–5,000 parts</span>
+  </header>
+  <p class="why">Component logic and performance under genuine load.</p>
+  <div class="plates"><article class="plate">
+  <div class="shot"><img src="assets/renders/10182-1.png" alt="Rendered view of Café Corner" loading="lazy"></div>
+  <div class="meta">
+    <div class="idline"><code class="set">10182-1</code><h3>Café Corner</h3></div>
+    <p class="repro">Reproduced by Max Martin Richter</p>
+    <dl class="facts">
+      <div><dt>Parts</dt><dd>2,183</dd></div>
+      <div><dt>Triangles</dt><dd>—</dd></div>
+    </dl>
+    <div class="tags"><span class="tag">SNOT</span><span class="tag">Modular</span></div>
+    <p class="note">Modular SNOT construction — the grid rules under real load.</p>
+  </div>
+</article><article class="plate">
+  <div class="shot"><img src="assets/renders/10179-1.png" alt="Rendered view of Millennium Falcon (UCS)" loading="lazy"></div>
+  <div class="meta">
+    <div class="idline"><code class="set">10179-1</code><h3>Millennium Falcon (UCS)</h3></div>
+    <p class="repro">Reproduced by Roland Dahl</p>
+    <dl class="facts">
+      <div><dt>Parts</dt><dd>4,545</dd></div>
+      <div><dt>Triangles</dt><dd>—</dd></div>
+    </dl>
+    <div class="tags"><span class="tag">Curved</span><span class="tag">Sloped</span></div>
+    <p class="note">Curved and sloped surfaces — elliptical slopes and near-miss angles.</p>
+  </div>
+</article><article class="plate">
+  <div class="shot"><img src="assets/renders/42055-1.png" alt="Rendered view of Bucket Wheel Excavator" loading="lazy"></div>
+  <div class="meta">
+    <div class="idline"><code class="set">42055-1</code><h3>Bucket Wheel Excavator</h3></div>
+    <p class="repro">Reproduced by Philippe Hurbain</p>
+    <dl class="facts">
+      <div><dt>Parts</dt><dd>4,385</dd></div>
+      <div><dt>Triangles</dt><dd>—</dd></div>
+    </dl>
+    <div class="tags"><span class="tag">Technic</span><span class="tag">Flex-path</span></div>
+    <p class="note">Large Technic with flex elements — both stress classes at once.</p>
+  </div>
+</article></div>
+</section><section class="band">
+  <header class="bandhead">
+    <h2>Huge</h2><span class="range">over 5,000 parts</span>
+  </header>
+  <p class="why">Performance ceiling only — too large to hand-verify meaningfully.</p>
+  <div class="plates"><article class="plate">
+  <div class="shot"><img src="assets/renders/10276-1.png" alt="Rendered view of Colosseum" loading="lazy"></div>
+  <div class="meta">
+    <div class="idline"><code class="set">10276-1</code><h3>Colosseum</h3></div>
+    <p class="repro">Reproduced by Orion Pobursky</p>
+    <dl class="facts">
+      <div><dt>Parts</dt><dd>5,433</dd></div>
+      <div><dt>Triangles</dt><dd>—</dd></div>
+    </dl>
+    <div class="tags"><span class="tag">Pure System</span><span class="tag">Repetitive</span></div>
+    <p class="note">Performance ceiling. 5,433 parts of highly repetitive construction.</p>
+  </div>
+</article></div>
+</section>
+
+<section class="flex">
+  <h2>The class excluded from Gold</h2>
+  <div class="big">200</div>
+  <div class="bigl">models · 13.7% of the corpus</div>
+  <p class="note" style="margin-top:16px;max-width:64ch">Models carrying <code>0 !LDCAD GENERATED</code> geometry — 887 <code>PATH</code> configurations (hoses, cables, chains) and 108 <code>SPRING</code>, totalling 680,623 inline polygons. LDCad writes this as <em>fallback</em> content and regenerates it whenever endpoints move, so it is a snapshot rather than the model. It carries no part identity, is invisible to every rule the tool has, and breaks the inventory cross-check because a hose modelled this way contributes no part references. Excluded from Gold, kept in Wild as a deliberate stress class.</p>
+</section>
+
+<p class="method">Renders produced by baking each model to world-space triangles through the verifier's own resolver, then rasterising with a z-buffer at lo-res primitive detail. Generated flex geometry is skipped during baking, which is why the flex-heavy models render at all. Colours resolve through <code>LDConfig.ldr</code>. Part counts are type-1 reference counts; triangle counts are post-decimation for the rotatable models.</p>
+</div>
+
+<dialog id="dlg">
+  <div class="viewer">
+    <div class="vhead">
+      <h3 id="vt">Model</h3>
+      <span class="hint">drag to rotate · scroll to zoom</span>
+      <button class="vclose" id="vc">Close</button>
+    </div>
+    <canvas id="cv"></canvas>
+  </div>
+</dialog>
+
+<script src="assets/three.iife.js"></script>
+<script>
+(function(){
+const MESH={};
+const dlg=document.getElementById('dlg'),cv=document.getElementById('cv'),vt=document.getElementById('vt');
+let renderer,scene,camera,root,raf=0,yaw=.6,pitch=.35,dist=2.4,drag=null;
+function init(){
+  renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(38,1,.01,100);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x4b5766,2.1));
+  const d=new THREE.DirectionalLight(0xffffff,1.5); d.position.set(.5,1,.8); scene.add(d);
+}
+async function inflate(b64){
+  const bin=atob(b64),u=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+  const ds=new DecompressionStream('deflate');
+  const buf=await new Response(new Blob([u]).stream().pipeThrough(ds)).arrayBuffer();
+  return new Int16Array(buf);
+}
+const MC={};
+function loadMesh(id){
+  if(MESH[id])return Promise.resolve(MESH[id]);
+  if(MC[id])return MC[id];
+  MC[id]=new Promise((res,rej)=>{
+    const t=document.createElement('script');
+    t.src='assets/meshes/'+id+'.js';
+    t.onload=()=>{const m=(window.__M||{})[id]; m?res(m):rej(new Error('mesh missing: '+id));};
+    t.onerror=()=>rej(new Error('could not load mesh for '+id));
+    document.head.appendChild(t);
+  });
+  return MC[id];
+}
+async function load(id){
+  if(!renderer)init();
+  if(root)scene.remove(root);
+  root=new THREE.Group();
+  const m=await loadMesh(id);
+  for(const g of m.groups){
+    const q=await inflate(g.d);
+    const pos=new Float32Array(q.length);
+    for(let i=0;i<q.length;i++)pos[i]=q[i]/32000;
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    geo.computeVertexNormals();
+    root.add(new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:g.hex,side:THREE.DoubleSide})));
+  }
+  root.scale.set(1,-1,1);
+  scene.add(root); yaw=.6; pitch=.35; dist=2.4; resize();
+}
+function resize(){
+  const r=cv.getBoundingClientRect();
+  renderer.setSize(r.width,r.height,false);
+  camera.aspect=r.width/Math.max(r.height,1); camera.updateProjectionMatrix();
+}
+function tick(){
+  raf=requestAnimationFrame(tick);
+  camera.position.set(Math.sin(yaw)*Math.cos(pitch)*dist,Math.sin(pitch)*dist,Math.cos(yaw)*Math.cos(pitch)*dist);
+  camera.lookAt(0,0,0); renderer.render(scene,camera);
+}
+cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId)});
+cv.addEventListener('pointermove',e=>{if(!drag)return;
+  yaw-=(e.clientX-drag.x)*.008; pitch=Math.max(-1.4,Math.min(1.4,pitch+(e.clientY-drag.y)*.008));
+  drag={x:e.clientX,y:e.clientY}});
+addEventListener('pointerup',()=>drag=null);
+cv.addEventListener('wheel',e=>{e.preventDefault();dist=Math.max(.9,Math.min(7,dist*(1+Math.sign(e.deltaY)*.12)))},{passive:false});
+addEventListener('resize',()=>{if(renderer&&dlg.open)resize()});
+for(const b of document.querySelectorAll('button.shot.live')){
+  b.addEventListener('click',async()=>{
+    const id=b.dataset.set;
+    vt.textContent=id+' · '+b.closest('.plate').querySelector('h3').textContent;
+    dlg.showModal(); await load(id); if(!raf)tick();
+  });
+}
+document.getElementById('vc').addEventListener('click',()=>dlg.close());
+dlg.addEventListener('close',()=>{cancelAnimationFrame(raf);raf=0});
+})();
+</script>

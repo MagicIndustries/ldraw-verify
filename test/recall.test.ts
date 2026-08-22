@@ -266,9 +266,6 @@ describe.todo("unimplemented-rule acceptance tests (pending predicates)", () => 
     "L-02 TECHNIC_HOLE_BRIDGED: check:graph, predicate \"connection-graph degree\" -- illegal: a stud bridging two Technic holes at once; legal: a single unbridged stud",
   );
   it.todo(
-    "L-03 MULTI_STUD_INTO_TECHNIC_HOLES: check:graph, predicate \"count(studs entering technic holes of one part) <= 1\" -- illegal: two+ studs into one part's Technic holes; legal: one",
-  );
-  it.todo(
     "L-04 PIN_NOT_IN_CLICK: check:transform, predicate \"discrete axial position\" -- illegal: a Technic pin (3673/4274/2780) at a non-detent axial offset; legal: seated in its detent",
   );
   it.todo(
@@ -343,8 +340,10 @@ describe("pending-rule inventory", () => {
     const source = await readFile(new URL(import.meta.url), "utf8");
     const unnamed = pending.filter((id) => !source.includes(id));
     expect(unnamed).toEqual([]);
-    // 31 pending in the corpus; L-10 is named by its own describe.todo
-    // (paired with G-01), the other 30 by the block above.
-    expect(pending).toHaveLength(31);
+    // 30 pending in the corpus; L-10 is named by its own describe.todo
+    // (paired with G-01), the other 29 by the block above. Was 31 before
+    // L-03 was removed as a misreading of its source -- see the note in
+    // rules/lego-build-rules.yaml.
+    expect(pending).toHaveLength(30);
   });
 });

@@ -173,6 +173,46 @@ describe("buildGraph", () => {
     expect(g.edges).toHaveLength(1);
   });
 
+  // A real Technic pin decomposes into three coincident SNAP_CYL metas and
+  // only one carries slide=true. Emitting all three reports one mating as
+  // three connections and splits the evidence about what it is: a rule
+  // reading maleSlide off any single edge sees undefined two times in three.
+  it("collapses coincident metas of one connector into a single edge carrying the union of their evidence", async () => {
+    const shadow = fakeShadow({
+      "parts/hole.dat": "0 !LDCAD SNAP_CYL [gender=F] [caps=none] [secs=S 6 4] [pos=0 0 0]",
+      "parts/pin.dat": [
+        "0 !LDCAD SNAP_CYL [gender=M] [caps=none] [secs=S 6 4] [slide=true] [pos=0 0 0]",
+        "0 !LDCAD SNAP_CYL [gender=M] [caps=one] [secs=S 6 4] [pos=0 0 0]",
+        "0 !LDCAD SNAP_CYL [gender=M] [caps=one] [secs=S 6 4] [pos=0 0 0]",
+      ].join("\n"),
+    });
+    const model = modelOf([placement(0, "pin.dat"), placement(1, "hole.dat")]);
+    const g = await buildGraph(model, lib, shadow);
+    expect(g.edges).toHaveLength(1);
+    // slide=true came from only one of the three metas and must survive.
+    expect(g.edges[0]!.maleSlide).toBe(true);
+    expect(g.edges[0]!.female).toBe(1);
+    expect(g.edges[0]!.male).toBe(0);
+  });
+
+  // Different radii at one point are different connectors, not duplicates.
+  // Measured over the corpus, 495 groups keyed on role and position alone
+  // held conflicting maleRadius, so collapsing them would discard a real
+  // connector -- whichever one lost the arbitrary tie-break.
+  it("keeps coincident connectors of different radii as separate edges", async () => {
+    const shadow = fakeShadow({
+      "parts/twin.dat": [
+        "0 !LDCAD SNAP_CYL [gender=M] [secs=S 6 4] [pos=0 0 0]",
+        "0 !LDCAD SNAP_CYL [gender=M] [secs=S 38 4] [pos=0 0 0]",
+      ].join("\n"),
+      "parts/socket.dat": "0 !LDCAD SNAP_CYL [gender=F] [caps=none] [secs=S 6 4] [pos=0 0 0]",
+    });
+    const model = modelOf([placement(0, "twin.dat"), placement(1, "socket.dat")]);
+    const g = await buildGraph(model, lib, shadow);
+    expect(g.edges).toHaveLength(2);
+    expect(new Set(g.edges.map((e) => e.maleRadius))).toEqual(new Set([6, 38]));
+  });
+
   it("finds a coincident pair even when it straddles a spatial-hash bucket boundary", async () => {
     const shadow = fakeShadow({
       "parts/male.dat": "0 !LDCAD SNAP_CYL [gender=M] [pos=0 0 0]",

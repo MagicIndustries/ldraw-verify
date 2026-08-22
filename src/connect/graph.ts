@@ -51,6 +51,103 @@ export interface Edge {
    * its doc comment in `src/rules/l5-legality.ts`.
    */
   maleSlide?: boolean;
+  /**
+   * Placement indices of the endpoints that supplied the female and the male
+   * hotspot of this pairing. `a`/`b` say which two parts met; these say which
+   * of them was the socket and which was the plug.
+   *
+   * Without them `femaleCaps` and `maleSlide` are bare values whose owner is
+   * unknowable downstream, so a rule can only ask "is either of these two
+   * parts the kind of part I care about" -- which is a different question from
+   * "is the part I care about the one that supplied the socket". B-01 got
+   * exactly that wrong. A hollow-stud round brick stacked normally on a
+   * Technic brick pairs the round brick's own hollow anti-stud (`caps=none`)
+   * with the Technic brick's ordinary top stud; B-01 saw `caps=none`, saw that
+   * one of the two parts was in its Technic-hole part list, and blamed a
+   * pinhole ten LDU from the connection and not party to it. Over all 1,464
+   * corpus models that produced 33 findings and zero genuine violations --
+   * see `docs/rules-testing/B-01-CORPUS-SCAN.md`.
+   */
+  female: number;
+  male: number;
+  /**
+   * The `secs=` radius as carried by each side specifically, with no
+   * cross-side fallback. `radius` above answers "how big is this connection",
+   * falling back to whichever side supplied a value; these answer "how big is
+   * the plug" and "how big is the socket", which is a different question and
+   * the one a rule identifying a *part type* by size actually needs.
+   *
+   * B-01 read `radius` to mean "the male is stud-sized" and that is not what
+   * it says. In set 1682-1 a wheel rim (4266) meets a Technic brick: the rim's
+   * only male connector is its r=38 tyre seat, but the fallback served the
+   * female pinhole's 6 and B-01 called a 38 LDU rim a System stud.
+   */
+  maleRadius?: number;
+  femaleRadius?: number;
+}
+
+/**
+ * Rounding applied to a hotspot position before two edges are judged to be at
+ * the same place. Pairing already ran to a 1 LDU tolerance, so two hotspot
+ * pairs surviving within a whole LDU of each other describe one physical
+ * mating, not two.
+ */
+const COINCIDENT_EDGE_ROUNDING = 1;
+
+/**
+ * Collapse the several edges a single physical connection can produce into one.
+ *
+ * A part's shadow data decomposes one connector into more than one `SNAP_*`
+ * meta -- a Technic pin in a hole yields three coincident pairs, of which only
+ * one carries `slide=true`. Emitting all three misrepresents one mating as
+ * three connections and, worse, splits the evidence about what that mating IS
+ * across them: a rule reading `maleSlide` off any single edge sees `undefined`
+ * two times in three and concludes a seated pin is a System stud jammed into a
+ * pinhole. Across a 25-model corpus sample 15.3% of all edges were coincident
+ * duplicates, so this is the common case rather than an oddity.
+ *
+ * Edges are grouped by the pair they join, WHICH SIDE PLAYED WHICH ROLE, and
+ * where they meet. Keying on roles as well as placements matters: a part can
+ * offer both a male and a female hotspot at one point (3673.dat does), and
+ * merging a pairing where A is the socket into one where A is the plug would
+ * attribute `femaleCaps` to the wrong part -- the very confusion this data is
+ * meant to resolve.
+ *
+ * Merged attributes take the union of the evidence rather than whichever edge
+ * happened to come first:
+ *
+ * - `maleSlide` is true if ANY coincident male connector slides. A pin that
+ *   slides does not stop sliding because the same pin also reports rigid end
+ *   faces.
+ * - `femaleCaps` prefers `"none"`. Two coincident sockets, one blind and one
+ *   open, describe a hole something can pass through.
+ *
+ * Connector size is part of the key, not something merged. Two connectors of
+ * different radii meeting the same part at the same point are two different
+ * connectors and stay two edges. This is load-bearing rather than theoretical:
+ * measured over the corpus, 495 groups keyed on role and position alone held
+ * conflicting `maleRadius` values, so picking one -- by first-seen or any other
+ * arbitrary rule -- would silently discard a real connector. Keying on the
+ * radii instead makes the conflict impossible by construction, and costs almost
+ * nothing: a Technic pin's three coincident metas all report r=6 and still
+ * collapse to one edge.
+ */
+function mergeCoincidentEdges(edges: Edge[]): Edge[] {
+  const groups = new Map<string, Edge>();
+  for (const e of edges) {
+    const at = e.at.map((v) => Math.round(v / COINCIDENT_EDGE_ROUNDING)).join(",");
+    const key = `${e.female}|${e.male}|${e.kind}|${at}|${e.maleRadius ?? "-"}|${e.femaleRadius ?? "-"}`;
+    const kept = groups.get(key);
+    if (!kept) {
+      groups.set(key, { ...e });
+      continue;
+    }
+    if (e.maleSlide) kept.maleSlide = true;
+    if (e.femaleCaps === "none") kept.femaleCaps = "none";
+    // Radii are in the key, so every edge in a group already agrees on them.
+    if (kept.radius === undefined && e.radius !== undefined) kept.radius = e.radius;
+  }
+  return [...groups.values()];
 }
 
 export interface ConnectionGraph {
@@ -575,16 +672,23 @@ export async function buildGraph(
             // never falling back to the other -- see their doc comments on
             // Edge. hotspotsCompatible already rejected same-gender pairs,
             // so exactly one of these two is female and the other male.
-            const femaleHotspot = loc.hotspot.gender === "female" ? loc.hotspot : cand.hotspot;
-            const maleHotspot = loc.hotspot.gender === "male" ? loc.hotspot : cand.hotspot;
+            const locIsFemale = loc.hotspot.gender === "female";
+            const femaleHotspot = locIsFemale ? loc.hotspot : cand.hotspot;
+            const maleHotspot = locIsFemale ? cand.hotspot : loc.hotspot;
+            const female = locIsFemale ? loc.placementIndex : cand.placementIndex;
+            const male = locIsFemale ? cand.placementIndex : loc.placementIndex;
             pairedHotspots.add(loc.index);
             pairedHotspots.add(cand.index);
             edges.push({
               a: loc.placementIndex,
               b: cand.placementIndex,
+              female,
+              male,
               kind: loc.hotspot.kind,
               at: loc.hotspot.pos,
               ...(radius !== undefined ? { radius } : {}),
+              ...(maleHotspot.radius !== undefined ? { maleRadius: maleHotspot.radius } : {}),
+              ...(femaleHotspot.radius !== undefined ? { femaleRadius: femaleHotspot.radius } : {}),
               ...(femaleHotspot.caps !== undefined ? { femaleCaps: femaleHotspot.caps } : {}),
               ...(maleHotspot.slide ? { maleSlide: true as const } : {}),
             });
@@ -593,6 +697,10 @@ export async function buildGraph(
       }
     }
   }
+
+  const deduped = mergeCoincidentEdges(edges);
+  edges.length = 0;
+  edges.push(...deduped);
 
   const total = model.placements.length;
   const withData = total - unknownPlacements.length;

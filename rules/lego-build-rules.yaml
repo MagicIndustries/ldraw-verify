@@ -371,15 +371,11 @@ rules:
     confidence: high
     note: "THE ONLY rule in this corpus that is genuinely a collision test."
 
-  - id: L-03
-    name: MULTI_STUD_INTO_TECHNIC_HOLES
-    tier: HARD
-    source_tier: P1
-    statement: "Never more than one stud into Technic holes."
-    check: graph
-    predicate: "count(studs entering technic holes of one part) <= 1"
-    parts: [3702, 3710, 3894]
-    confidence: high
+  # L-03 MULTI_STUD_INTO_TECHNIC_HOLES -- REMOVED 2026-08-22.
+  # Misreading of the source. The source material warns that System and Technic
+  # do not share an edge datum, so driving System studs into Technic holes does
+  # not line up -- it is not a budget of one stud. B-01 already states the ban
+  # flatly and is the rule to keep. Exemplars L-03.{legal,illegal}.ldr deleted.
 
   - id: L-02
     name: TECHNIC_HOLE_BRIDGED
