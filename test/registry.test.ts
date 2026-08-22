@@ -10,6 +10,15 @@ const lib = await LibraryIndex.fromDirectory("test/fixtures/lib");
 const model = resolveModel(parseDocument("1 4 0 0 0 1 0 0 0 1 0 0 0 1 3001.dat", "a.ldr"), lib);
 
 describe("Registry", () => {
+  // Twice now a hand-edit has appended a second `note:` to a rule that already
+  // had one. The YAML parser rejects duplicate keys, so the whole corpus fails
+  // to load and every other test in this file falls over with an error that
+  // names neither the rule nor the key. This one names it.
+  it("loads the shipped corpus without duplicate keys", async () => {
+    await expect(loadCorpus("rules/lego-build-rules.yaml")).resolves.toBeInstanceOf(Map);
+  });
+
+
   it("loads rule metadata from the corpus", async () => {
     const r = await Registry.create("rules/lego-build-rules.yaml");
     expect(r.meta("B-06")!.tier).toBe("HARD");

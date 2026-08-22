@@ -1,5 +1,9 @@
-0 G-02 LEGAL: a clip gripping a tile on a current moulding
+0 G-02 LEGAL: a clip closed around the EDGE of a tile.
+0 The tile is held in the curved jaw of the U-clip, gripping its edge the way
+0 the clip would grip a bar -- not resting on top of it. Current clip mouldings
+0 hold this reliably; older ones did not, which is why it is often listed as
+0 forbidden.
 0 Name: G-02.legal.ldr
 0 Author: ldraw-verify CANON
-1 7 0 0 0 1 0 0 0 1 0 0 0 1 3070b.dat
-1 4 0 8 0 1 0 0 0 1 0 0 0 1 4085b.dat 
+1 7 0 0 0 1 0 0 0 1 0 0 0 1 4085b.dat
+1 4 -4 4 -30 0 1 0 0 0 -1 -1 0 0 3070b.dat

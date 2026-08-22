@@ -1,5 +1,7 @@
-0 L-04 ILLEGAL: a Technic pin left short of its detent
+0 L-04 ILLEGAL: the short end of a half pin driven into a Technic hole.
+0 The half pin's stud end is too short to engage the bore; it bears on almost
+0 nothing. Contrast the legal twin, where a full pin takes the same hole.
 0 Name: L-04.illegal.ldr
 0 Author: ldraw-verify CANON
 1 7 0 0 0 1 0 0 0 1 0 0 0 1 3700.dat
-1 4 0 10 10 0 0 -1 0 1 0 1 0 0 3673.dat
+1 4 0 10 10 0 0 1 0 1 0 -1 0 0 4274.dat

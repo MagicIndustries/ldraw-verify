@@ -1,10 +1,13 @@
-0 G-03 LEGAL: five stacked plates equal 40 LDU, exactly two studs of width
+0 G-03 LEGAL: the 5-plate / 2-stud identity, 40 LDU either way.
+0 Left: five 1x1 plates stacked, 5 x 8 = 40 LDU tall.
+0 Right: one 1x2 plate stood on edge, 2 x 20 = 40 LDU tall.
+0 The two columns are exactly the same height. That equality is what lets a
+0 sideways sub-assembly rejoin the upright grid.
 0 Name: G-03.legal.ldr
 0 Author: ldraw-verify CANON
 1 4 0 -8 0 1 0 0 0 1 0 0 0 1 3024.dat
-1 4 0 -16 0 1 0 0 0 1 0 0 0 1 3024.dat
+1 1 0 -16 0 1 0 0 0 1 0 0 0 1 3024.dat
 1 4 0 -24 0 1 0 0 0 1 0 0 0 1 3024.dat
-1 4 0 -32 0 1 0 0 0 1 0 0 0 1 3024.dat
+1 1 0 -32 0 1 0 0 0 1 0 0 0 1 3024.dat
 1 4 0 -40 0 1 0 0 0 1 0 0 0 1 3024.dat
-1 14 60 -8 0 1 0 0 0 1 0 0 0 1 3023.dat
-1 7 60 0 0 1 0 0 0 1 0 0 0 1 3023.dat
+1 14 40 -20 0 0 1 0 -1 0 0 0 0 1 3023.dat

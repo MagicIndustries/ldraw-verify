@@ -529,14 +529,28 @@ rules:
     note: "22.5 deg proven three ways: tooth crests in clh4.dat, Berard's slide, primitive naming."
 
   - id: L-04
-    name: PIN_NOT_IN_CLICK
+    name: NO_HALF_PIN_SHORT_END_IN_HOLE
     tier: HARD
     kind: constraint
     domain: physical
     source_tier: P1
-    statement: "Every Technic pin must be seated in its detent."
+    statement: "The short end of a half pin may not be inserted into a Technic hole."
+    note: >
+      RESTATED AND RENAMED 2026-08-22. Was PIN_NOT_IN_CLICK, "every Technic pin
+      must be seated in its detent" -- a misreading. Berard's example is not
+      about how far along its axis a pin has been pushed. It is about which END
+      of a half pin (4274) is used: the short stub is not long enough to engage
+      the bore and bears on almost nothing, so it must not be the end that goes
+      in. The old name asserted the misreading, which is worse than a vague one
+      because a consuming agent reads the name first.
+
+      The legal contrast is one end of a full-length pin (3673), which is the
+      length the bore was cut for. Both exemplars carry an exploded companion
+      panel showing the connector beside the bore before insertion: assembled,
+      the engaging end is inside the brick and the whole distinction is
+      invisible.
     check: transform
-    predicate: "discrete axial position"
+    predicate: "half-pin short end engaged in a Technic bore"
     parts: [3673, 4274, 2780]
     confidence: high
 
@@ -546,12 +560,31 @@ rules:
     kind: constraint
     domain: physical
     source_tier: P1
-    statement: "System side-studs and Technic holes are not co-planar."
+    statement: "A System side-stud may not be inserted into a Technic hole; the two families do not line up."
+    note: >
+      RESTATED 2026-08-22. Previously "System side-studs and Technic holes are
+      not co-planar", which states the underlying dimensional fact but not the
+      rule. The rule is the prohibition Berard draws from it: do not push the
+      side stud of a SNOT brick into the side bore of a Technic element,
+      because the two bricks cannot then both sit on the grid. The offset is
+      about 0.30 LDU in real plastic and LDraw does not model it, so the
+      illegal exemplar RENDERS as though it fitted -- which is precisely why
+      this rule has to be stated rather than seen, and why it is filed under
+      not_checkable for a verifier reading geometry alone: the 0.30 LDU error
+      is absent from LDraw entirely, so it is not geometrically detectable.
+
+      NO LEGAL TWIN, deliberately. A legal twin earns its place by being a NEAR
+      twin -- the same parts with one thing changed, so the pair isolates the
+      rule (B-01 stud-on-stud against stud-in-bore; L-04 a full pin against a
+      half pin's short end in the same bore; T-08 a plate swapped for a tile in
+      the same sandwich). This rule forbids one specific connection and there
+      is no legal way to make it, so any "legal" arrangement of the two bricks
+      is simply a different build and isolates nothing. The twin that used to
+      sit here showed a plate merged into the brick and taught nothing.
     check: part_identity
     predicate: "part-class co-occurrence"
     parts: [3700, 6541, 87087]
     confidence: high
-    note: "The 0.30 LDU error is absent from LDraw entirely. Not geometrically detectable."
 
   - id: L-06
     name: CONE_ON_PIN_NO_STOP

@@ -1,5 +1,6 @@
-0 L-04 LEGAL: the pin pushed home
+0 L-04 LEGAL: one end of a full-length Technic pin seated in the same hole.
+0 The full pin's shank is the length the bore was cut for.
 0 Name: L-04.legal.ldr
 0 Author: ldraw-verify CANON
 1 7 0 0 0 1 0 0 0 1 0 0 0 1 3700.dat
-1 4 0 10 0 0 0 -1 0 1 0 1 0 0 3673.dat
+1 4 0 10 10 0 0 -1 0 1 0 1 0 0 3673.dat

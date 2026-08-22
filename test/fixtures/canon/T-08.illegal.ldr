@@ -1,7 +1,10 @@
-0 T-08 ILLEGAL: a tile layer carrying load between two bricks
+0 T-08 ILLEGAL: a tile in the middle layer of a load path.
+0 The middle course is two elements: a 2x2 plate on the left and a 2x2 TILE on
+0 the right. The plate's studs grip the brick above; the tile's smooth top does
+0 not, so half the top brick rests on a slip plane and the stack can shear.
 0 Name: T-08.illegal.ldr
 0 Author: ldraw-verify CANON
 1 7 0 0 0 1 0 0 0 1 0 0 0 1 3001.dat
-1 14 -20 -8 0 1 0 0 0 1 0 0 0 1 3068b.dat
+1 14 -20 -8 0 1 0 0 0 1 0 0 0 1 3022.dat
 1 14 20 -8 0 1 0 0 0 1 0 0 0 1 3068b.dat
-1 4 0 -24 0 1 0 0 0 1 0 0 0 1 3001.dat 
+1 4 0 -32 0 1 0 0 0 1 0 0 0 1 3001.dat
