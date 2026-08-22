@@ -9,8 +9,10 @@ import {
   isOrthonormal,
   ORTHONORMALITY_EPS,
   SINGULAR_DET_EPS,
+  translationOf,
 } from "../resolve/matrix.js";
 import type { Edge } from "../connect/graph.js";
+import type { Vec3 } from "../parse/ast.js";
 import type { Finding, Rule, RuleContext } from "./types.js";
 
 /**
@@ -429,4 +431,181 @@ const noFractionalRotation: Rule = {
   },
 };
 
-export const l5Rules: Rule[] = [noStudInPinhole, noFractionalRotation];
+
+const PART_PROPS_PATH = fileURLToPath(new URL("../../data/part-properties.json", import.meta.url));
+
+interface PartProperty {
+  topStuds: number;
+  heightLdu?: number;
+}
+let partProps: Record<string, PartProperty> | undefined;
+function props(partId: string): PartProperty | undefined {
+  partProps ??= (JSON.parse(readFileSync(PART_PROPS_PATH, "utf8")) as { parts: Record<string, PartProperty> }).parts;
+  return partProps[partId.toLowerCase()];
+}
+
+/** Centre-to-centre stud spacing. */
+const STUD_PITCH = 20;
+/** A plate's thickness, and so the clear gap between two adjacent studs. */
+const PLATE_HEIGHT = 8;
+const WEDGE_EPS = 1;
+/**
+ * How far a wedged part's origin may sit from the host's stud plane and still
+ * be in the gap. A part on edge presents a face up to a stud pitch tall, so its
+ * origin can be a pitch away while its lower edge is still down between the
+ * studs.
+ */
+const PART_REACH = STUD_PITCH;
+
+/**
+ * L-10 / PLATE_BETWEEN_STUDS.
+ *
+ * The clear gap between two adjacent studs is 8 LDU, which is exactly a
+ * plate's thickness, so a plate pushed in edge-on stays there -- gripped on
+ * its two smooth faces by the stud walls. It is a friction fit on surfaces the
+ * System never intended to bear, and it splays the studs.
+ *
+ * A TILE in the identical position is explicitly legal (G-01). The two are the
+ * same geometry and differ only in the element, so the check is: is the wedged
+ * part something that presents studs? That is read from
+ * `data/part-properties.json`, which derives it from connectivity rather than
+ * from the part's name -- 30 parts disagree with their own descriptions and
+ * connectivity is right in every one, an inverted "Tile" having studs and a
+ * "Plate ... with Swirled Top" having none. See docs/rules-testing/PART-PROPERTIES.md.
+ *
+ * The wedge itself is recognised geometrically: an axis-aligned part whose
+ * studs point HORIZONTALLY (so it is on edge), one plate thick, sitting inside
+ * a gap bracketed by two studs one pitch apart on some other part.
+ */
+const plateBetweenStuds: Rule = {
+  id: "L-10",
+  needs: ["graph", "placements"],
+  run({ model, meta }: RuleContext): Finding[] {
+    const footprints = model.graph?.studFootprints;
+    if (!footprints) {
+      return [
+        {
+          ruleId: meta.id,
+          tier: meta.tier,
+          status: "unknown",
+          message: "no stud footprints were computed for this model; a wedged plate is not decidable",
+          locations: [],
+        },
+      ];
+    }
+
+    // A wedged part is held by friction alone -- that is the whole complaint.
+    // Anything with a stud connection is mounted, not wedged, and an edge-on
+    // plate on a bracket or headlight brick is ordinary SNOT. Without this the
+    // rule fired on 30.3% of real sets, almost all of it legitimate sideways
+    // building.
+    const connected = new Set<number>();
+    for (const e of model.graph?.edges ?? []) {
+      connected.add(e.a);
+      connected.add(e.b);
+    }
+    // "Not connected" and "we could not tell" are different claims, and only
+    // the first one means wedged. A placement whose connectivity data is
+    // missing or incomplete has no edges for the reason that it has no data,
+    // and treating that as friction-fit invents a violation out of a gap --
+    // measured, 3 of the rule's first 6 corpus findings were exactly this.
+    const undecidable = new Set([
+      ...(model.graph?.unknownPlacements ?? []),
+      ...(model.graph?.incompleteDataPlacements ?? []),
+    ]);
+
+    const out: Finding[] = [];
+    for (const p of model.placements) {
+      if (connected.has(p.index) || undecidable.has(p.index)) continue;
+      const prop = props(p.partId);
+      // No studs to splay the gap with -- that is a tile, and G-01 says a tile
+      // here is legal. This single test is the whole difference between the
+      // two rules.
+      if (!prop || prop.topStuds === 0) continue;
+      if (prop.heightLdu === undefined || Math.abs(prop.heightLdu - PLATE_HEIGHT) > WEDGE_EPS) continue;
+      if (!isAxisAligned(p.world, AXIS_ALIGNED_ENTRY_EPS)) continue;
+
+      // Studs point along the part's local -Y. Horizontal means it is on edge.
+      const studAxis = applyDir(p.world, [0, -1, 0]);
+      const axis = studAxis.findIndex((c) => Math.abs(Math.abs(c) - 1) < 0.01);
+      if (axis === 1 || axis === -1) continue;
+      const sign = studAxis[axis] ?? 0;
+
+      // The body lies one plate thickness behind the stud plane, which passes
+      // through the part origin (LDraw puts a part's origin on its top face).
+      const origin = translationOf(p.world);
+      const face = origin[axis] ?? 0;
+      const lo = Math.min(face, face - sign * PLATE_HEIGHT);
+      const hi = Math.max(face, face - sign * PLATE_HEIGHT);
+
+      const wedge = findBracketingStuds(model, footprints, p.index, axis, lo, hi, origin);
+      if (!wedge) continue;
+      // ...and it has to be down IN the gap. Studs stand 4 LDU proud of their
+      // plane, so a part whose body never reaches that band is beside the
+      // studs, not between them.
+      const y = origin[1] ?? 0;
+      if (y < wedge.studPlaneY - PART_REACH || y > wedge.studPlaneY + PART_REACH) continue;
+
+      out.push({
+        ruleId: meta.id,
+        tier: meta.tier,
+        status: "fail",
+        message: `${p.partId} is wedged edge-on into the ${PLATE_HEIGHT} LDU gap between two studs on ${wedge.hostPartId}; a tile there would be legal (G-01), a plate is not`,
+        locations: [
+          { file: p.file, line: p.line, partId: p.partId },
+          ...(wedge.host ? [{ file: wedge.host.file, line: wedge.host.line, partId: wedge.host.partId }] : []),
+        ],
+        evidence: { axis: "xyz"[axis], gap: [lo, hi], studs: wedge.studs },
+      });
+    }
+    return out;
+  },
+};
+
+/**
+ * Two studs one pitch apart on some OTHER placement, bracketing [lo, hi] along
+ * `axis`, close enough to the wedged part to be the thing gripping it.
+ *
+ * Host studs are enumerated from the stud footprint's own lattice rather than
+ * from hotspots: a footprint records the extent of a part's studs and they sit
+ * on a 20 LDU grid within it, so the positions follow. That keeps this to the
+ * data `buildGraph` already publishes.
+ */
+function findBracketingStuds(
+  model: RuleContext["model"],
+  footprints: NonNullable<NonNullable<RuleContext["model"]["graph"]>["studFootprints"]>,
+  selfIndex: number,
+  axis: number,
+  lo: number,
+  hi: number,
+  origin: Vec3,
+): { studs: [number, number]; studPlaneY: number; hostPartId: string; host?: { file: string; line: number; partId: string } } | undefined {
+  const other = axis === 0 ? 2 : 0;
+  for (const [index, f] of footprints) {
+    if (index === selfIndex) continue;
+    const host = model.placements[index];
+    if (!host) continue;
+    const min = axis === 0 ? f.minX : f.minZ;
+    const max = axis === 0 ? f.maxX : f.maxZ;
+    const otherMin = other === 0 ? f.minX : f.minZ;
+    const otherMax = other === 0 ? f.maxX : f.maxZ;
+    // The wedged part has to be over the host's footprint in the other
+    // horizontal direction, and reach down to its stud plane.
+    const o = origin[other] ?? 0;
+    if (o < otherMin - STUD_PITCH || o > otherMax + STUD_PITCH) continue;
+    for (let c = min; c <= max - STUD_PITCH + WEDGE_EPS; c += STUD_PITCH) {
+      const next = c + STUD_PITCH;
+      if (c < lo - WEDGE_EPS && next > hi + WEDGE_EPS && next - c <= STUD_PITCH + WEDGE_EPS) {
+        return {
+          studs: [c, next],
+          studPlaneY: f.y,
+          hostPartId: host.partId,
+          host: { file: host.file, line: host.line, partId: host.partId },
+        };
+      }
+    }
+  }
+  return undefined;
+}
+
+export const l5Rules: Rule[] = [noStudInPinhole, noFractionalRotation, plateBetweenStuds];
