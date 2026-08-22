@@ -52,6 +52,20 @@ export interface Edge {
    */
   maleSlide?: boolean;
   /**
+   * True when the *female* hotspot carried `[slide=true]`, recorded for
+   * symmetry with `maleSlide` now that every other per-side value is attributed.
+   *
+   * It is NOT a marker for "this is a Technic bore", though it looks like one:
+   * 3700's pinhole has it and 3062b's round-brick barrel does not, which is
+   * exactly Berard's legal/illegal pair for L-05. That resemblance is a
+   * coincidence of which shadow primitive an older part happens to use. 87080
+   * carries a `slide=true` bore AND a `slide`-less one on the same part, so it
+   * cannot be a property of the bore kind at all, and an L-05 built on it fired
+   * on 53.3% of real sets -- almost all of them modern Technic panels with
+   * perfectly ordinary bores. See L-05 under `not_checkable` in the corpus.
+   */
+  femaleSlide?: boolean;
+  /**
    * Placement indices of the endpoints that supplied the female and the male
    * hotspot of this pairing. `a`/`b` say which two parts met; these say which
    * of them was the socket and which was the plug.
@@ -143,6 +157,7 @@ function mergeCoincidentEdges(edges: Edge[]): Edge[] {
       continue;
     }
     if (e.maleSlide) kept.maleSlide = true;
+    if (e.femaleSlide) kept.femaleSlide = true;
     if (e.femaleCaps === "none") kept.femaleCaps = "none";
     // Radii are in the key, so every edge in a group already agrees on them.
     if (kept.radius === undefined && e.radius !== undefined) kept.radius = e.radius;
@@ -739,6 +754,7 @@ export async function buildGraph(
               ...(femaleHotspot.radius !== undefined ? { femaleRadius: femaleHotspot.radius } : {}),
               ...(femaleHotspot.caps !== undefined ? { femaleCaps: femaleHotspot.caps } : {}),
               ...(maleHotspot.slide ? { maleSlide: true as const } : {}),
+              ...(femaleHotspot.slide ? { femaleSlide: true as const } : {}),
             });
           }
         }

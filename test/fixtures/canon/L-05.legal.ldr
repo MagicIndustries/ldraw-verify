@@ -1,0 +1,7 @@
+0 L-05 LEGAL: the same pin in a bore cut for it.
+0 A Technic brick's through-bore is marked as a bore a connector travels along;
+0 the pin seats and clicks.
+0 Name: L-05.legal.ldr
+0 Author: ldraw-verify CANON
+1 7 0 0 0 1 0 0 0 1 0 0 0 1 3700.dat
+1 4 0 10 0 0 0 -1 0 1 0 1 0 0 3673.dat

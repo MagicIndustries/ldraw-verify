@@ -47,13 +47,34 @@ data states directly.
 |---|---|---|
 | `L-10` PLATE_BETWEEN_STUDS | tile vs plate | **implemented** — `topStuds` + `heightLdu` |
 | `G-01` TILE_BETWEEN_STUDS | tile vs plate | **covered** as L-10's negative case |
-| `L-05` PIN_INTO_UNDERSIZED_BORE | bore classes | **unblocked** — `bores` |
+| `L-05` PIN_INTO_UNDERSIZED_BORE | bore classes | **still blocked** — see below; the table gives radii, and radius is not the distinction |
 | `L-01` SYSTEM_TECHNIC_HEIGHT_MISMATCH | part classes | partial — but see its note; the 0.30 LDU error is absent from LDraw, so the rule stays not-checkable regardless |
 | `L-06` CONE_ON_PIN_NO_STOP | travel stops | **still blocked** |
 | `L-08` PC_ON_PC_SLIDING | materials | **still blocked** |
 
-So the table unblocks three of the six, not six. That is worth saying plainly:
-the estimate that one artifact would clear all of them was too optimistic.
+So the table unblocks **two** of the six — `L-10` and its `G-01` contrast. The
+original estimate that one artifact would clear all six was too optimistic, and
+the revised estimate of three was still one too many: `L-05` was attempted
+against the table and turned out not to be checkable either (below).
+
+## L-05 was attempted and is not checkable
+
+`L-05` forbids forcing a Technic pin into a System bore. The table supplies bore
+radii, but **radius is not the distinction**: a round brick's barrel and a
+Technic pinhole both report r=6, and both are `caps=none`.
+
+`[slide=true]` on the female side looked like the answer — 3700's pinhole
+carries it, 3062b's barrel does not, which is precisely Berard's legal/illegal
+pair. It is a coincidence of which shadow primitive an older part uses. **87080
+carries a `slide=true` bore and a `slide`-less one on the same part**, so it
+cannot be a property of the bore kind, and a rule built on it fired on **53.3%
+of real sets** — almost all of them modern Technic panels with ordinary bores.
+
+A part-class list is no better: the corpus's `technicHole` class holds six
+parts, so "not on the list" is true of nearly every beam and connector in
+Technic. The exemplar pair is authored and correct and the rule is recorded
+under `not_checkable` with what a future attempt would need — a comprehensive
+Technic-bore part class, or bore geometry measured from the mesh.
 
 ## What it cannot derive
 
