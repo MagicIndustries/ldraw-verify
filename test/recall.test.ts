@@ -254,9 +254,6 @@ describe.todo("unimplemented-rule acceptance tests (pending predicates)", () => 
     "B-04 MUST_BE_SEPARABLE: check:graph, predicate \"flag large plate-on-plate contact area\" -- would need a fixture with a large-area plate-on-plate stack (illegal) vs a small/staggered overlap (legal)",
   );
   it.todo(
-    "B-07 MASONRY_BOND: check:grid, predicate \"no coincident vertical seam x between adjacent courses; min overlap 2 studs\" -- illegal: two courses with a repeated seam x; legal: staggered courses",
-  );
-  it.todo(
     "B-08 TECHNIC_SMOOTHNESS: check:graph, predicate \"drivetrain graph depth\", threshold unstated by the source -- cannot author a fixture until a threshold exists",
   );
   it.todo(
@@ -340,10 +337,15 @@ describe("pending-rule inventory", () => {
     const source = await readFile(new URL(import.meta.url), "utf8");
     const unnamed = pending.filter((id) => !source.includes(id));
     expect(unnamed).toEqual([]);
-    // 30 pending in the corpus; L-10 is named by its own describe.todo
-    // (paired with G-01), the other 29 by the block above. Was 31 before
-    // L-03 was removed as a misreading of its source -- see the note in
-    // rules/lego-build-rules.yaml.
-    expect(pending).toHaveLength(30);
+    // 29 pending in the corpus; L-10 is named by its own describe.todo
+    // (paired with G-01), the other 28 by the block above. Was 31 before
+    // L-03 was removed as a misreading of its source, and 30 before B-07
+    // gained a predicate -- see rules/lego-build-rules.yaml.
+    //
+    // B-07 only implements the seam-repetition half of its statement; the
+    // "min overlap 2 studs" clause is unchecked. It is off this list because
+    // the rule now renders a verdict, not because the statement is fully
+    // covered -- see the rule's doc comment in src/rules/l3-grid.ts.
+    expect(pending).toHaveLength(29);
   });
 });

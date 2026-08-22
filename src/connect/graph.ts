@@ -150,6 +150,29 @@ function mergeCoincidentEdges(edges: Edge[]): Edge[] {
   return [...groups.values()];
 }
 
+/**
+ * World-space extent of a placement's System studs, and the plane they lie in.
+ *
+ * Derived from the same stud filter `singleStudParts` uses -- round, 6 LDU
+ * across, 4 LDU tall, not sliding -- so it describes real top studs and not
+ * every cylindrical connector the part happens to carry.
+ *
+ * This is the footprint a course-and-seam analysis needs, and it comes free
+ * here: `buildGraph` has already resolved every hotspot into world space, so
+ * a rule would otherwise have to re-walk the reference closure to recover it.
+ * Extents run to the studs themselves, NOT to the part's outline -- a caller
+ * wanting the brick's edge adds half a stud pitch.
+ */
+export interface StudFootprint {
+  /** Y of the stud plane. Undefined-free: only emitted when all studs share one. */
+  y: number;
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+  count: number;
+}
+
 export interface ConnectionGraph {
   edges: Edge[];
   coverage: { withData: number; total: number; ratio: number };
@@ -312,6 +335,7 @@ export interface ConnectionGraph {
    * corpus evidence (both cases measured directly against the real shadow
    * library).
    */
+  studFootprints?: Map<number, StudFootprint>;
   singleStudParts?: Set<number>;
   /**
    * Placement indices whose part has continuous rotational symmetry about
@@ -350,6 +374,8 @@ export interface ConnectionGraph {
  * than imported to keep this connectivity-layer module independent of the
  * rules layer). */
 const STUD_RADIUS = 6;
+/** Slack allowed before a part's studs count as sharing one plane (LDU). */
+const STUD_PLANE_EPS = 0.5;
 const STUD_RADIUS_TOL = 0.5;
 /**
  * A System stud's height in LDU (`stud_height` in the corpus's own
@@ -522,6 +548,7 @@ export async function buildGraph(
   const unreliableAxisPlacements: number[] = [];
   const clipOnlyPlacements: number[] = [];
   const singleStudParts = new Set<number>();
+  const studFootprints = new Map<number, StudFootprint>();
   const rotationallySymmetricParts = new Set<number>();
   const freeRotation = new Map<number, Vec3[]>();
   const all: LocatedHotspot[] = [];
@@ -587,6 +614,27 @@ export async function buildGraph(
         !h.slide,
     );
     if (studHotspots.length === 1) singleStudParts.add(p.index);
+
+    if (studHotspots.length > 0) {
+      const ws = studHotspots.map((h) => applyPoint(p.world, h.pos));
+      const ys = ws.map((w) => w[1]);
+      // A part whose studs do not share one plane is not lying flat in a
+      // course -- a bracket, a rotated part, anything SNOT. It has no
+      // footprint in the course sense, so it gets none rather than a
+      // misleading flattened one.
+      if (Math.max(...ys) - Math.min(...ys) <= STUD_PLANE_EPS) {
+        const xs = ws.map((w) => w[0]);
+        const zs = ws.map((w) => w[2]);
+        studFootprints.set(p.index, {
+          y: ys[0] ?? 0,
+          minX: Math.min(...xs),
+          maxX: Math.max(...xs),
+          minZ: Math.min(...zs),
+          maxZ: Math.max(...zs),
+          count: ws.length,
+        });
+      }
+    }
 
     // Both of these are properties of the PART, read off the hotspots
     // already in hand and in the part's own frame -- deliberately not
@@ -730,6 +778,7 @@ export async function buildGraph(
     componentOf,
     incompleteDataPlacements,
     fullyAccountedPlacements,
+    studFootprints,
     singleStudParts,
     rotationallySymmetricParts,
     freeRotationAxes: freeRotation,

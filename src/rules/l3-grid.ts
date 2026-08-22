@@ -1,4 +1,5 @@
 import { AXIS_ALIGNED_ENTRY_EPS, isAxisAligned, translationOf } from "../resolve/matrix.js";
+import type { StudFootprint } from "../connect/graph.js";
 import type { Finding, Rule, RuleContext } from "./types.js";
 
 /**
@@ -183,4 +184,180 @@ const xzGrid: Rule = {
   },
 };
 
-export const l3Rules: Rule[] = [yAxis, xzGrid];
+/** Half a stud pitch: studs sit this far inside a part's outline. */
+const HALF_STUD_PITCH = 10;
+/** Slack when deciding two brick edges abut, or two seams line up (LDU). */
+const SEAM_EPS = 1;
+/** A run needs at least this many bricks before it has an interior seam. */
+const MIN_RUN = 2;
+/**
+ * Shortest part, along the run axis, that counts as masonry: two studs, i.e.
+ * a 40 LDU outline. A single-stud part has no length to bond WITH -- a column
+ * of 1x1 round plates is a column by design, not a wall built wrong -- and
+ * admitting them was what made an earlier draft of this rule fire on 26% of
+ * real sets, grouping round plates and slopes into imaginary courses.
+ */
+const MIN_MASONRY_SPAN = 40;
+/**
+ * Adjacent courses must be exactly one brick apart. A course sitting a plate
+ * (8 LDU) above another is a different construction -- plates laid over a
+ * brick course tie it together rather than continuing it -- and the bond
+ * argument does not apply.
+ */
+const BRICK_COURSE_GAP = 24;
+
+interface Brick {
+  index: number;
+  lo: number;
+  hi: number;
+  bandLo: number;
+  bandHi: number;
+}
+
+/** Seam positions interior to a row of bricks that abut along one axis. */
+function seamsOf(bricks: Brick[]): Map<number, [number, number]> {
+  const seams = new Map<number, [number, number]>();
+  const sorted = [...bricks].sort((a, b) => a.lo - b.lo);
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1];
+    const cur = sorted[i];
+    if (!prev || !cur) continue;
+    // Abutting, not overlapping and not separated. An overlap means the two
+    // are not side by side in one course at all (different depths in a
+    // two-deep wall, say), and a gap means there is no seam to repeat.
+    if (Math.abs(cur.lo - prev.hi) > SEAM_EPS) continue;
+    seams.set(Math.round(cur.lo), [cur.index, prev.index]);
+  }
+  return seams;
+}
+
+/**
+ * B-07 / MASONRY_BOND.
+ *
+ * A wall built so that the joints between bricks line up from course to
+ * course is a stack of independent columns: nothing ties one column to the
+ * next, and the wall splits along the repeated joint. Offsetting each course
+ * so its joints land over the middle of the bricks below is what makes courses
+ * act as one piece -- the same reason real masonry uses a bond.
+ *
+ * Only the seam-repetition half of the corpus statement is checked here. The
+ * other half, "min overlap 2 studs", is a separate measurement and is not
+ * implemented; a model that satisfies this rule has not been checked for it.
+ *
+ * Scope is deliberately narrow, because the cost of guessing is a false
+ * accusation on a legal build:
+ *
+ * - Only axis-aligned placements whose studs share one plane. Anything
+ *   rotated, bracketed or SNOT is not a course and gets no verdict.
+ * - Bricks are grouped into a run only when they sit at the same stud plane,
+ *   share a band on the perpendicular axis, and physically abut. Bricks that
+ *   merely happen to be collinear are not a wall.
+ * - Two courses count as adjacent only when nothing lies between them and the
+ *   gap is at most one brick.
+ * - A seam must repeat over an overlapping band. Two seams at the same X in
+ *   parts of the model 200 LDU apart in Z are not the same joint.
+ *
+ * Runs are found along X and along Z independently, so a wall in either
+ * direction is covered, and a corner is simply two runs.
+ */
+const masonryBond: Rule = {
+  id: "B-07",
+  needs: ["graph", "placements"],
+  run({ model, meta }: RuleContext): Finding[] {
+    const footprints = model.graph?.studFootprints;
+    if (!footprints) {
+      return [
+        {
+          ruleId: meta.id,
+          tier: meta.tier,
+          status: "unknown",
+          message: "no stud footprints were computed for this model; courses and seams are not decidable",
+          locations: [],
+        },
+      ];
+    }
+
+    const out: Finding[] = [];
+    // axis 0: runs along X, banded by Z. axis 1: runs along Z, banded by X.
+    for (const axis of [0, 1] as const) {
+      // course key -> bricks, where the key pins the stud plane AND the band,
+      // so a two-deep wall's near and far leaves stay separate runs.
+      const courses = new Map<string, Brick[]>();
+      for (const [index, f] of footprints) {
+        const p = model.placements[index];
+        if (!p || !isAxisAligned(p.world, AXIS_ALIGNED_ENTRY_EPS)) continue;
+        const b: Brick =
+          axis === 0
+            ? {
+                index,
+                lo: f.minX - HALF_STUD_PITCH,
+                hi: f.maxX + HALF_STUD_PITCH,
+                bandLo: f.minZ - HALF_STUD_PITCH,
+                bandHi: f.maxZ + HALF_STUD_PITCH,
+              }
+            : {
+                index,
+                lo: f.minZ - HALF_STUD_PITCH,
+                hi: f.maxZ + HALF_STUD_PITCH,
+                bandLo: f.minX - HALF_STUD_PITCH,
+                bandHi: f.maxX + HALF_STUD_PITCH,
+              };
+        if (f.count < 2 || b.hi - b.lo < MIN_MASONRY_SPAN) continue;
+        const key = `${Math.round(f.y)}|${Math.round(b.bandLo)}|${Math.round(b.bandHi)}`;
+        const list = courses.get(key);
+        if (list) list.push(b);
+        else courses.set(key, [b]);
+      }
+
+      // Group course keys by band, then walk each band's stud planes in
+      // build order (LDraw's -Y is up, so descending Y is upward).
+      const byBand = new Map<string, Array<{ y: number; bricks: Brick[] }>>();
+      for (const [key, bricks] of courses) {
+        if (bricks.length < MIN_RUN) continue;
+        const [y, lo, hi] = key.split("|").map(Number);
+        const band = `${lo}|${hi}`;
+        const list = byBand.get(band);
+        if (list) list.push({ y: y ?? 0, bricks });
+        else byBand.set(band, [{ y: y ?? 0, bricks }]);
+      }
+
+      for (const levels of byBand.values()) {
+        levels.sort((a, b) => a.y - b.y);
+        for (let i = 1; i < levels.length; i++) {
+          const upper = levels[i - 1];
+          const lower = levels[i];
+          if (!upper || !lower) continue;
+          if (Math.abs(lower.y - upper.y - BRICK_COURSE_GAP) > SEAM_EPS) continue;
+          const lowerSeams = seamsOf(lower.bricks);
+          if (lowerSeams.size === 0) continue;
+          const upperSeams = seamsOf(upper.bricks);
+          for (const [x, pair] of lowerSeams) {
+            let repeated: number | undefined;
+            for (const ux of upperSeams.keys()) {
+              if (Math.abs(ux - x) <= SEAM_EPS) {
+                repeated = ux;
+                break;
+              }
+            }
+            if (repeated === undefined) continue;
+            const locs = [...pair, ...(upperSeams.get(repeated) ?? [])]
+              .map((idx) => model.placements[idx])
+              .filter((pl): pl is NonNullable<typeof pl> => pl !== undefined)
+              .map((pl) => ({ file: pl.file, line: pl.line, partId: pl.partId }));
+            out.push({
+              ruleId: meta.id,
+              tier: meta.tier,
+              status: "fail",
+              message: `the vertical seam at ${axis === 0 ? "x" : "z"}=${x} repeats between adjacent courses; the courses are not bonded and the wall splits along the joint`,
+              locations: locs,
+              evidence: { axis: axis === 0 ? "x" : "z", seam: x, upperY: upper.y, lowerY: lower.y },
+            });
+          }
+        }
+      }
+    }
+    return out;
+  },
+};
+
+export const l3Rules: Rule[] = [yAxis, xzGrid, masonryBond];
