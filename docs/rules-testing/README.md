@@ -10,11 +10,25 @@ Published copy: <https://claude.ai/code/artifact/6084b149-7550-4a2d-bf43-88487d8
 
 | Path | Contents |
 |---|---|
-| `index.html` | The whole page, self-contained. Every image, mesh and script is inlined. |
+| `index.html` | The page. 104 KB — assets load from `assets/`, not inlined. |
 | `assets/renders/` | Rendered views of the 15 candidate corpus models |
 | `assets/exemplars/` | Rendered illegal/legal pairs for 19 rules |
-| `assets/meshes/` | Quantised geometry for the 7 rotatable models |
+| `assets/meshes/` | Quantised geometry for the 7 rotatable models, one file each |
+| `assets/three.iife.js` | The three.js bundle |
 | `build/` | The scripts that generate all of the above |
+
+### Why it works without a server
+
+Nothing uses `fetch` or `XMLHttpRequest` — those are what browsers block on `file://`.
+Images and the three.js bundle load through `src` attributes, and a model's geometry
+is pulled in on demand by injecting a `<script>` tag, so opening `index.html` directly
+from disk works. Verified over HTTP; the `file://` path follows from using no
+network APIs, but has not been exercised directly.
+
+A **self-contained single-file build** is also available — set `EXTERNAL_ASSETS=0`
+(or leave it unset) when running `build/mkhtml.py`. That version inlines everything
+as data URIs and comes out around 4.6 MB. It is what gets published as an artifact,
+where a strict CSP blocks every external request.
 
 The exemplar **source models** are not here — they live with the tests, at
 `test/fixtures/canon/`, because they are run against the verifier as fixtures.
@@ -37,10 +51,11 @@ the shadow library is CC BY-SA 4.0, where ShareAlike would propagate into anythi
 derived from it, so it is supplied by path only.
 
 ```
-LDRAW_LORES=1 python3 build/batch.py      # render the corpus models
-LDRAW_LORES=1 python3 build/batch2.py     # render the large ones
-python3 build/build.py                    # assemble page data
-python3 build/mkhtml.py                   # emit index.html
+LDRAW_LORES=1 python3 build/batch.py         # render the corpus models
+LDRAW_LORES=1 python3 build/batch2.py        # render the large ones
+python3 build/build.py                       # assemble page data
+EXTERNAL_ASSETS=1 python3 build/mkhtml.py    # emit the 104 KB index.html
+python3 build/mkhtml.py                      # or omit the flag for the 4.6 MB single file
 ```
 
 `build/mkhtml.py` expects a `three.iife.js` bundle beside it. Regenerate with:
