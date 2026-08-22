@@ -1,0 +1,8 @@
+0 L-05 ILLEGAL: a Technic pin forced into the barrel of a round brick.
+0 The bore of a Brick 1x1 Round is a System anti-stud tube, not a Technic bore.
+0 The pin is held in permanent compression and can never reach its click.
+0 Berard 2006, slide 10.
+0 Name: L-05.illegal.ldr
+0 Author: ldraw-verify CANON
+1 7 0 0 0 1 0 0 0 1 0 0 0 1 3062b.dat
+1 4 0 24 0 0 0 1 1 0 0 0 1 0 3673.dat
